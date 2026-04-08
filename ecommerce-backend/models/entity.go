@@ -1,0 +1,41 @@
+package models
+
+import "time"
+
+type User struct {
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `json:"name"`
+	Email     string    `gorm:"unique" json:"email"`
+	Password  string    `json:"-"` // Password tidak akan dikembalikan di JSON response
+	Role      string    `gorm:"type:enum('admin', 'seller', 'buyer');default:'buyer'" json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type Shop struct {
+	ID          uint      `gorm:"primaryKey"`
+	UserID      uint      `json:"user_id"`
+	ShopName    string    `json:"shop_name"`
+	Description string    `json:"description"`
+	Badge       string    `gorm:"type:enum('Reguler', 'Terpercaya', 'Resmi');default:'Reguler'" json:"badge"`
+	Status      string    `gorm:"type:enum('pending', 'approved', 'rejected');default:'pending'" json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type Product struct {
+	ID          uint      `gorm:"primaryKey"`
+	ShopID      uint      `json:"shop_id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Price       float64   `json:"price"`
+	Stock       int       `json:"stock"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// Fitur Tambahan: Keranjang Belanja
+type Cart struct {
+	ID        uint      `gorm:"primaryKey"`
+	BuyerID   uint      `json:"buyer_id"`
+	ProductID uint      `json:"product_id"`
+	Quantity  int       `json:"quantity"`
+	CreatedAt time.Time `json:"created_at"`
+}

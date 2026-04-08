@@ -1,0 +1,27 @@
+package routes
+
+import (
+	"ecommerce-backend/controllers"
+	"ecommerce-backend/middleware"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+func Setup(app *fiber.App) {
+	api := app.Group("/api")
+
+	api.Post("/register", controllers.Register)
+	api.Post("/login", controllers.Login)
+
+	protected := api.Group("/user", middleware.Protected)
+	protected.Get("/profile", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{"user_id": c.Locals("user_id"), "role": c.Locals("role")})
+	})
+	protected.Post("/shop/register", controllers.CreateShop)
+
+	// -- TAMBAHKAN KODE INI --
+	// Rute Khusus Admin (Dilindungi 2 lapis: Harus login + Harus Admin)
+	admin := api.Group("/admin", middleware.Protected, middleware.IsAdmin)
+	admin.Get("/shops/pending", controllers.GetPendingShops)
+	admin.Put("/shops/approve/:id", controllers.ApproveShop) // Menggunakan PUT untuk update data
+}
