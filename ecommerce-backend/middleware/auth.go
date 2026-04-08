@@ -51,3 +51,12 @@ func IsAdmin(c *fiber.Ctx) error {
 	}
 	return c.Next() // Jika admin, izinkan lewat
 }
+
+// Fungsi untuk membatasi akses khusus Penjual (Seller)
+func IsSeller(c *fiber.Ctx) error {
+	role := c.Locals("role")
+	if role != "seller" {
+		return c.Status(403).JSON(fiber.Map{"message": "Akses ditolak. Anda bukan Penjual!"})
+	}
+	return c.Next()
+}

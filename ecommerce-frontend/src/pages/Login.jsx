@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // 1. Import useNavigate
+import { useNavigate, Link } from 'react-router-dom'; 
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-  const navigate = useNavigate(); // 2. Inisialisasi navigate
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -23,15 +23,12 @@ function Login() {
 
       setMessage(`Berhasil! Anda login sebagai: ${response.data.role}`);
       
-      // 3. Arahkan ke dashboard otomatis setelah 1 detik
       setTimeout(() => {
         if (response.data.role === 'seller') {
           navigate('/dashboard');
         } else if (response.data.role === 'admin') {
-          // Nanti kita buat halaman admin
           navigate('/admin'); 
         } else {
-          // Nanti kita buat halaman beranda untuk pembeli
           navigate('/home'); 
         }
       }, 1000); 
@@ -54,6 +51,11 @@ function Login() {
         <button type="submit" style={{ padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', cursor: 'pointer' }}>Login</button>
       </form>
       {message && <p style={{ marginTop: '20px', fontWeight: 'bold' }}>{message}</p>}
+      
+      {/* Link ke halaman register */}
+      <p style={{ marginTop: '20px', fontSize: '14px' }}>
+        Belum punya akun? <Link to="/register" style={{ color: '#007bff', textDecoration: 'none' }}>Daftar sekarang</Link>
+      </p>
     </div>
   );
 }

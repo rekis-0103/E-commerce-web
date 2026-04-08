@@ -12,6 +12,7 @@ func Setup(app *fiber.App) {
 
 	api.Post("/register", controllers.Register)
 	api.Post("/login", controllers.Login)
+	api.Get("/products", controllers.GetAllPublicProducts)
 
 	protected := api.Group("/user", middleware.Protected)
 	protected.Get("/profile", func(c *fiber.Ctx) error {
@@ -19,9 +20,11 @@ func Setup(app *fiber.App) {
 	})
 	protected.Post("/shop/register", controllers.CreateShop)
 
-	// -- TAMBAHKAN KODE INI --
-	// Rute Khusus Admin (Dilindungi 2 lapis: Harus login + Harus Admin)
 	admin := api.Group("/admin", middleware.Protected, middleware.IsAdmin)
 	admin.Get("/shops/pending", controllers.GetPendingShops)
-	admin.Put("/shops/approve/:id", controllers.ApproveShop) // Menggunakan PUT untuk update data
+	admin.Put("/shops/approve/:id", controllers.ApproveShop) 
+
+	seller := api.Group("/seller", middleware.Protected, middleware.IsSeller)
+	seller.Post("/products", controllers.CreateProduct)
+	seller.Get("/products", controllers.GetMyShopProducts)
 }
