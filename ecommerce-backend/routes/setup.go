@@ -19,6 +19,10 @@ func Setup(app *fiber.App) {
 		return c.JSON(fiber.Map{"user_id": c.Locals("user_id"), "role": c.Locals("role")})
 	})
 	protected.Post("/shop/register", controllers.CreateShop)
+	protected.Post("/cart", controllers.AddToCart)
+	protected.Get("/cart", controllers.GetMyCart)
+	protected.Put("/cart/:id", controllers.UpdateCartQuantity) 
+	protected.Delete("/cart/:id", controllers.DeleteCartItem)
 
 	admin := api.Group("/admin", middleware.Protected, middleware.IsAdmin)
 	admin.Get("/shops/pending", controllers.GetPendingShops)
