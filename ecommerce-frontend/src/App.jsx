@@ -1,15 +1,14 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import SellerDashboard from './pages/SellerDashboard'; // Import halamannya
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Rute utama langsung diarahkan ke halaman login */}
         <Route path="/" element={<Navigate to="/login" />} />
-        
-        {/* Rute Halaman Login */}
         <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<SellerDashboard />} /> {/* Rute baru */}
       </Routes>
     </Router>
   );
