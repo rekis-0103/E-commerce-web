@@ -65,3 +65,18 @@ func GetAllPublicProducts(c *fiber.Ctx) error {
 		"data":    products,
 	})
 }
+
+// Menampilkan satu produk spesifik berdasarkan ID (Bisa diakses siapa saja)
+func GetPublicProductByID(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var product models.Product
+	
+	if err := config.DB.First(&product, id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Produk tidak ditemukan"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Berhasil mengambil detail produk",
+		"data":    product,
+	})
+}

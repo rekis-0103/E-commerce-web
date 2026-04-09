@@ -13,6 +13,7 @@ func Setup(app *fiber.App) {
 	api.Post("/register", controllers.Register)
 	api.Post("/login", controllers.Login)
 	api.Get("/products", controllers.GetAllPublicProducts)
+	api.Get("/products/:id", controllers.GetPublicProductByID)
 
 	protected := api.Group("/user", middleware.Protected)
 	protected.Get("/profile", func(c *fiber.Ctx) error {

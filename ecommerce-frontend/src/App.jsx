@@ -3,7 +3,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import SellerDashboard from './pages/SellerDashboard';
 import Home from './pages/Home';
-import Cart from './pages/Cart'; 
+import Cart from './pages/Cart';
+import ProductDetail from './pages/ProductDetail'; 
 
 function App() {
   return (
@@ -14,7 +15,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<SellerDashboard />} />
         <Route path="/home" element={<Home />} />
-        <Route path="/cart" element={<Cart />} /> {/* 2. Tambahkan Rute ini */}
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/product/:id" element={<ProductDetail />} /> {/* 2. Tambahkan Rute Ini */}
       </Routes>
     </Router>
   );
