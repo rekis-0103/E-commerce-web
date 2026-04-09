@@ -26,7 +26,6 @@ function Home() {
     navigate('/login');
   };
 
-  // FUNGSI BARU: Menembak API Backend untuk menambah keranjang
   const handleAddToCart = async (product) => {
     if (!token) {
       alert('Akses Ditolak! Anda harus Login untuk memasukkan barang ke keranjang.');
@@ -40,59 +39,195 @@ function Home() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // Mengubah alert biasa menjadi lebih memuaskan!
       alert(`Sukses! ${product.name} telah masuk ke keranjang belanja Anda.`);
     } catch (error) {
       alert('Gagal memasukkan ke keranjang.');
     }
   };
 
+  // OBJEK CSS UNTUK GAYA YANG LEBIH CERAH & MODERN
+  const styles = {
+    pageBackground: {
+      fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      backgroundColor: '#F8F9FA', // Latar belakang abu-abu sangat muda
+      minHeight: '100vh',
+    },
+    navbar: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      padding: '15px 60px',
+      backgroundColor: '#FFFFFF', // Navbar Putih
+      color: '#333',
+      alignItems: 'center',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)', // Bayangan halus
+      position: 'sticky', // Tetap di atas saat di-scroll
+      top: 0,
+      zIndex: 1000,
+    },
+    logo: {
+      margin: 0,
+      fontSize: '24px',
+      fontWeight: 'bold',
+      color: '#007bff', // Warna logo primer
+    },
+    navRight: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '15px',
+    },
+    cartBtn: {
+      padding: '10px 20px',
+      backgroundColor: '#FFFFFF',
+      color: '#333',
+      border: '1px solid #ddd',
+      borderRadius: '25px', // Tombol tumpul
+      cursor: 'pointer',
+      fontWeight: '600',
+      transition: 'all 0.2s',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    },
+    logoutBtn: {
+      padding: '10px 20px',
+      backgroundColor: '#f8d7da',
+      color: '#721c24',
+      border: 'none',
+      borderRadius: '25px',
+      cursor: 'pointer',
+      fontWeight: '600',
+    },
+    loginBtn: {
+      padding: '10px 25px',
+      backgroundColor: '#28a745',
+      color: 'white',
+      border: 'none',
+      borderRadius: '25px',
+      cursor: 'pointer',
+      fontWeight: 'bold',
+    },
+    container: {
+      padding: '60px',
+    },
+    pageTitle: {
+      fontSize: '32px',
+      fontWeight: '800',
+      marginBottom: '10px',
+      color: '#333',
+    },
+    pageSubTitle: {
+      fontSize: '16px',
+      color: '#6c757d',
+      marginBottom: '40px',
+    },
+    productGrid: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '30px',
+    },
+    productCard: {
+      width: '280px',
+      backgroundColor: '#FFFFFF',
+      padding: '25px',
+      borderRadius: '16px', // Kotak tumpul
+      boxShadow: '0 8px 16px rgba(0,0,0,0.05)', // Bayangan lembut yang 'mengangkat'
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      border: '1px solid #f0f0f0',
+      overflow: 'hidden',
+    },
+    productImage: {
+      height: '180px',
+      backgroundColor: '#F1F3F5',
+      marginBottom: '20px',
+      borderRadius: '12px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#adb5bd',
+      fontSize: '14px',
+    },
+    productName: {
+      margin: '0 0 10px 0',
+      fontSize: '20px',
+      fontWeight: '700',
+      color: '#333',
+    },
+    productDesc: {
+      color: '#6c757d',
+      fontSize: '14px',
+      height: '42px',
+      overflow: 'hidden',
+      marginBottom: '20px',
+      lineHeight: '1.5',
+    },
+    productPrice: {
+      color: '#28a745',
+      margin: '0 0 20px 0',
+      fontSize: '22px',
+      fontWeight: '800',
+    },
+    addToCartBtn: {
+      width: '100%',
+      padding: '12px',
+      backgroundColor: '#007bff',
+      color: 'white',
+      border: 'none',
+      borderRadius: '12px',
+      cursor: 'pointer',
+      fontWeight: 'bold',
+      fontSize: '16px',
+      transition: 'background-color 0.2s',
+    },
+  };
+
   return (
-    <div style={{ fontFamily: 'Arial', backgroundColor: '#f4f4f9', minHeight: '100vh' }}>
+    <div style={styles.pageBackground}>
       
-      <nav style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 50px', backgroundColor: '#343a40', color: 'white', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>E-Commerce Kita</h2>
+      {/* Navbar Modern */}
+      <nav style={styles.navbar}>
+        <h2 style={styles.logo}>Kita E-Commerce</h2>
         
-        <div>
+        <div style={styles.navRight}>
           {token ? (
             <>
-              <span style={{ marginRight: '20px' }}>Halo, {role === 'buyer' ? 'Pembeli' : role}</span>
-              {/* TOMBOL LIHAT KERANJANG BARU */}
-              <button onClick={() => navigate('/cart')} style={{ marginRight: '15px', padding: '8px 15px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '15px', color: '#555' }}>
+                Halo, {role === 'buyer' ? 'Pembeli' : role} 👋
+              </span>
+              <button onClick={() => navigate('/cart')} style={styles.cartBtn}>
                 🛒 Keranjang
               </button>
-              <button onClick={handleLogout} style={{ padding: '8px 15px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              <button onClick={handleLogout} style={styles.logoutBtn}>
                 Logout
               </button>
             </>
           ) : (
-            <button onClick={() => navigate('/login')} style={{ padding: '8px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <button onClick={() => navigate('/login')} style={styles.loginBtn}>
               Login ke Akun
             </button>
           )}
         </div>
       </nav>
 
-      <div style={{ padding: '50px' }}>
-        <h2>Belanja Sekarang</h2>
-        <p>Temukan produk terbaik dari berbagai toko terpercaya.</p>
+      <div style={styles.container}>
+        <h2 style={styles.pageTitle}>Temukan Favoritmu</h2>
+        <p style={styles.pageSubTitle}>Jelajahi berbagai produk terbaik dari toko-toko terpercaya.</p>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '30px' }}>
-          {products.length === 0 ? <p>Belum ada produk yang dijual.</p> : null}
+        {/* Grid Produk */}
+        <div style={styles.productGrid}>
+          {products.length === 0 ? <p style={{ textAlign: 'center', width: '100%', color: '#6c757d' }}>Belum ada produk yang dijual.</p> : null}
           
           {products.map((product) => (
-            <div key={product.ID} style={{ width: '250px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
-              <div style={{ height: '150px', backgroundColor: '#e9ecef', marginBottom: '15px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: '#adb5bd' }}>[Gambar Produk]</span>
+            <div key={product.ID} style={styles.productCard}>
+              <div style={styles.productImage}>
+                [Gambar Produk]
               </div>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '18px' }}>{product.name}</h3>
-              <p style={{ color: '#6c757d', fontSize: '14px', height: '40px', overflow: 'hidden' }}>{product.description}</p>
-              <h4 style={{ color: '#28a745', margin: '15px 0' }}>Rp {product.price.toLocaleString('id-ID')}</h4>
+              <h3 style={styles.productName}>{product.name}</h3>
+              <p style={styles.productDesc}>{product.description}</p>
+              <h4 style={styles.productPrice}>Rp {product.price.toLocaleString('id-ID')}</h4>
               
-              {/* TOMBOL UPDATE */}
               <button 
                 onClick={() => handleAddToCart(product)}
-                style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                style={styles.addToCartBtn}
               >
                 + Keranjang
               </button>
