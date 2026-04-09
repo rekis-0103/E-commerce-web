@@ -5,11 +5,11 @@ import (
 	"os"
 
 	"ecommerce-backend/config"
-	"ecommerce-backend/models" // Tambahkan ini
-	"ecommerce-backend/routes" // Tambahkan ini
+	"ecommerce-backend/models" 
+	"ecommerce-backend/routes" 
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors" // Tambahkan middleware CORS
+	"github.com/gofiber/fiber/v2/middleware/cors" 
 	"github.com/joho/godotenv"
 )
 
@@ -22,7 +22,7 @@ func main() {
 	config.ConnectDB()
 
 	// (Opsional) Auto-migrate: Memastikan tabel dibuat jika belum ada
-	config.DB.AutoMigrate(&models.User{}, &models.Shop{}, &models.Product{}, &models.Cart{})
+	config.DB.AutoMigrate(&models.User{}, &models.Shop{}, &models.Product{}, &models.Cart{}, &models.Order{}, &models.OrderItem{})
 
 	app := fiber.New()
 

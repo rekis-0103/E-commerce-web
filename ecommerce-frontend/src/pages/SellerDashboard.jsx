@@ -178,7 +178,13 @@ function SellerDashboard() {
     <div style={styles.pageBackground}>
       <div style={styles.header}>
         <h2 style={{ fontSize: '28px', margin: 0 }}>Dashboard Penjual</h2>
-        <button onClick={handleLogout} style={styles.btnDanger}>Logout</button>
+        
+        <div style={{ display: 'flex', gap: '15px' }}>
+          <button onClick={() => navigate('/shop-orders')} style={{ padding: '12px 24px', backgroundColor: '#ffc107', color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+            📦 Cek Pesanan Masuk
+          </button>
+          <button onClick={handleLogout} style={styles.btnDanger}>Logout</button>
+        </div>
       </div>
       
       <div style={styles.panel}>

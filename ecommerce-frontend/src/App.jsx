@@ -5,6 +5,8 @@ import SellerDashboard from './pages/SellerDashboard';
 import Home from './pages/Home';
 import Cart from './pages/Cart';
 import ProductDetail from './pages/ProductDetail'; 
+import OrderHistory from './pages/OrderHistory';
+import ShopOrders from './pages/ShopOrders';
 
 function App() {
   return (
@@ -16,7 +18,9 @@ function App() {
         <Route path="/dashboard" element={<SellerDashboard />} />
         <Route path="/home" element={<Home />} />
         <Route path="/cart" element={<Cart />} />
-        <Route path="/product/:id" element={<ProductDetail />} /> {/* 2. Tambahkan Rute Ini */}
+        <Route path="/product/:id" element={<ProductDetail />} /> 
+        <Route path="/orders" element={<OrderHistory />} /> 
+        <Route path="/shop-orders" element={<ShopOrders />} />
       </Routes>
     </Router>
   );

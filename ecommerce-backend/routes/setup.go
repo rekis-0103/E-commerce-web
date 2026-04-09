@@ -24,6 +24,8 @@ func Setup(app *fiber.App) {
 	protected.Get("/cart", controllers.GetMyCart)
 	protected.Put("/cart/:id", controllers.UpdateCartQuantity) 
 	protected.Delete("/cart/:id", controllers.DeleteCartItem)
+	protected.Post("/checkout", controllers.Checkout)
+	protected.Get("/orders", controllers.GetMyOrders)
 
 	admin := api.Group("/admin", middleware.Protected, middleware.IsAdmin)
 	admin.Get("/shops/pending", controllers.GetPendingShops)
@@ -34,4 +36,6 @@ func Setup(app *fiber.App) {
 	seller.Get("/products", controllers.GetMyShopProducts)
 	seller.Put("/products/:id", controllers.UpdateProduct)    
 	seller.Delete("/products/:id", controllers.DeleteProduct)
+	seller.Get("/orders", controllers.GetShopOrders)
+	seller.Put("/orders/:id/status", controllers.UpdateOrderStatus)
 }
