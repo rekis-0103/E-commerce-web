@@ -29,6 +29,7 @@ type Product struct {
 	Price       float64   `json:"price"`
 	Stock       int       `json:"stock"`
 	CreatedAt   time.Time `json:"created_at"`
+	Image string `json:"image"`
 }
 
 // Fitur Tambahan: Keranjang Belanja

@@ -32,4 +32,6 @@ func Setup(app *fiber.App) {
 	seller := api.Group("/seller", middleware.Protected, middleware.IsSeller)
 	seller.Post("/products", controllers.CreateProduct)
 	seller.Get("/products", controllers.GetMyShopProducts)
+	seller.Put("/products/:id", controllers.UpdateProduct)    
+	seller.Delete("/products/:id", controllers.DeleteProduct)
 }

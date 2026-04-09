@@ -32,6 +32,8 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
+	app.Static("/uploads", "./uploads")
+
 	// Panggil file routes
 	routes.Setup(app)
 
