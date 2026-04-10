@@ -6,9 +6,16 @@ type User struct {
 	ID        uint      `gorm:"primaryKey"`
 	Name      string    `json:"name"`
 	Email     string    `gorm:"unique" json:"email"`
-	Password  string    `json:"-"` // Password tidak akan dikembalikan di JSON response
+	Password  string    `json:"-"`
 	Role      string    `gorm:"type:enum('admin', 'seller', 'buyer');default:'buyer'" json:"role"`
 	CreatedAt time.Time `json:"created_at"`
+	
+}
+
+type OTPRegistry struct {
+	Email     string    `gorm:"primaryKey"`
+	OTP       string
+	OTPExpiry time.Time
 }
 
 type Shop struct {

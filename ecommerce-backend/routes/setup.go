@@ -14,6 +14,8 @@ func Setup(app *fiber.App) {
 	api.Post("/login", controllers.Login)
 	api.Get("/products", controllers.GetAllPublicProducts)
 	api.Get("/products/:id", controllers.GetPublicProductByID)
+	api.Post("/auth/request-otp", controllers.RequestOTP)
+	api.Post("/auth/google", controllers.GoogleLogin)
 
 	protected := api.Group("/user", middleware.Protected)
 	protected.Get("/profile", func(c *fiber.Ctx) error {
