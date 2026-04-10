@@ -25,9 +25,16 @@ func Protected(c *fiber.Ctx) error {
 
 	tokenString := parts[1]
 	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		// Backward-compatible default (matches authController fallback)
+		secret = "rahasia_negara_123"
+	}
 
 	// 3. Validasi keaslian token
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrTokenSignatureInvalid
+		}
 		return []byte(secret), nil
 	})
 
@@ -37,7 +44,12 @@ func Protected(c *fiber.Ctx) error {
 
 	// 4. Jika valid, simpan ID dan Role ke dalam request untuk dipakai di controller
 	claims := token.Claims.(jwt.MapClaims)
-	c.Locals("user_id", claims["id"])
+	// Accept both claim keys for compatibility.
+	userID := claims["user_id"]
+	if userID == nil {
+		userID = claims["id"]
+	}
+	c.Locals("user_id", userID)
 	c.Locals("role", claims["role"])
 
 	return c.Next() // Izinkan lewat

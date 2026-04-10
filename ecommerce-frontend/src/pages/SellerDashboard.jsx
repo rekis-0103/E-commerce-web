@@ -31,7 +31,15 @@ function SellerDashboard() {
       });
       setProducts(response.data.data || []);
     } catch (error) {
-      console.error("Gagal mengambil data produk");
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error?.message || "Unknown error";
+      console.error("Gagal mengambil data produk", { status, message });
+
+      // If token is missing/invalid, force re-login to refresh token
+      if (status === 401) {
+        localStorage.clear();
+        navigate('/login');
+      }
     }
   };
 

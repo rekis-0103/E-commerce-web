@@ -21,8 +21,15 @@ func main() {
 
 	config.ConnectDB()
 
-	// (Opsional) Auto-migrate: Memastikan tabel dibuat jika belum ada
-	config.DB.AutoMigrate(&models.User{}, &models.Shop{}, &models.Product{}, &models.Cart{}, &models.Order{}, &models.OrderItem{})
+	config.DB.AutoMigrate(
+		&models.User{}, 
+		&models.Shop{}, 
+		&models.Product{}, 
+		&models.Cart{}, 
+		&models.Order{}, 
+		&models.OrderItem{},
+		&models.OTPRegistry{}, 
+	)
 
 	app := fiber.New()
 
