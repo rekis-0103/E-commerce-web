@@ -26,6 +26,7 @@ func Setup(app *fiber.App) {
 	protected.Delete("/cart/:id", controllers.DeleteCartItem)
 	protected.Post("/checkout", controllers.Checkout)
 	protected.Get("/orders", controllers.GetMyOrders)
+	protected.Post("/orders/:id/pay", controllers.UploadPaymentProof)
 
 	admin := api.Group("/admin", middleware.Protected, middleware.IsAdmin)
 	admin.Get("/shops/pending", controllers.GetPendingShops)

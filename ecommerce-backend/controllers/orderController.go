@@ -3,6 +3,7 @@ package controllers
 import (
 	"ecommerce-backend/config"
 	"ecommerce-backend/models"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -11,7 +12,6 @@ import (
 func Checkout(c *fiber.Ctx) error {
 	userID := uint(c.Locals("user_id").(float64))
 
-	// Menangkap alamat pengiriman dari React
 	var req struct {
 		ShippingAddress string `json:"shipping_address"`
 	}
@@ -19,45 +19,38 @@ func Checkout(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"message": "Alamat pengiriman wajib diisi!"})
 	}
 
-	// 1. Tarik semua isi keranjang milik pembeli ini
 	var carts []models.Cart
 	if err := config.DB.Where("buyer_id = ?", userID).Find(&carts).Error; err != nil || len(carts) == 0 {
 		return c.Status(400).JSON(fiber.Map{"message": "Keranjang belanja Anda masih kosong"})
 	}
 
-	// 2. Kelompokkan barang berdasarkan Toko (ShopID)
-	// Kita memecah barang keranjang ke masing-masing toko
 	ordersMap := make(map[uint][]models.OrderItem)
 	totalsMap := make(map[uint]float64)
 
 	for _, cart := range carts {
 		var product models.Product
 		if err := config.DB.First(&product, cart.ProductID).Error; err != nil {
-			continue // Jika barang sudah dihapus penjual, lewati
+			continue
 		}
 
-		// Keamanan: Cek apakah stok masih cukup
+		// Tetap cek stok, sekadar memastikan barangnya masih ada saat checkout
 		if product.Stock < cart.Quantity {
 			return c.Status(400).JSON(fiber.Map{"message": "Maaf, stok produk " + product.Name + " tidak mencukupi"})
 		}
 
-		// Persiapkan rincian barang untuk nota
 		orderItem := models.OrderItem{
 			ProductID: product.ID,
 			Quantity:  cart.Quantity,
-			Price:     product.Price, // Kunci harga saat ini agar nota tidak berubah jika besok harga naik
+			Price:     product.Price,
 		}
 
 		ordersMap[product.ShopID] = append(ordersMap[product.ShopID], orderItem)
 		totalsMap[product.ShopID] += product.Price * float64(cart.Quantity)
 	}
 
-	// 3. Mulai Transaksi Database (Mode Aman)
-	// Jika gagal di tengah jalan, semua dibatalkan (uang tidak hilang, barang tidak terpotong)
 	tx := config.DB.Begin()
 
 	for shopID, items := range ordersMap {
-		// Buat Nota Pesanan Utama
 		order := models.Order{
 			BuyerID:         userID,
 			ShopID:          shopID,
@@ -67,33 +60,85 @@ func Checkout(c *fiber.Ctx) error {
 		}
 
 		if err := tx.Create(&order).Error; err != nil {
-			tx.Rollback() // Batalkan semua
+			tx.Rollback()
 			return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat nota pesanan"})
 		}
 
-		// Masukkan rincian barang ke dalam nota tersebut
 		for _, item := range items {
-			item.OrderID = order.ID // Hubungkan barang dengan ID Nota barusan
+			item.OrderID = order.ID
 			if err := tx.Create(&item).Error; err != nil {
 				tx.Rollback()
 				return c.Status(500).JSON(fiber.Map{"message": "Gagal menyimpan rincian barang"})
 			}
-
-			// Kurangi stok produk di toko
-			tx.Model(&models.Product{}).Where("id = ?", item.ProductID).Update("stock", config.DB.Raw("stock - ?", item.Quantity))
 		}
 	}
 
-	// 4. Kosongkan keranjang belanja pembeli karena sudah masuk nota
 	if err := tx.Where("buyer_id = ?", userID).Delete(&models.Cart{}).Error; err != nil {
 		tx.Rollback()
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengosongkan keranjang"})
 	}
 
-	// 5. Simpan semua perubahan secara permanen!
 	tx.Commit()
-
 	return c.JSON(fiber.Map{"message": "Checkout berhasil! Silakan lakukan pembayaran."})
+}
+
+// FUNGSI BARU: Mengunggah Bukti Pembayaran & Memotong Stok
+func UploadPaymentProof(c *fiber.Ctx) error {
+	orderID := c.Params("id")
+	userID := uint(c.Locals("user_id").(float64))
+
+	var order models.Order
+	if err := config.DB.Where("id = ? AND buyer_id = ?", orderID, userID).First(&order).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Pesanan tidak ditemukan"})
+	}
+
+	if order.Status != "Menunggu Pembayaran" {
+		return c.Status(400).JSON(fiber.Map{"message": "Pesanan ini tidak sedang menunggu pembayaran"})
+	}
+
+	// 1. Terima File Gambar
+	file, err := c.FormFile("payment_proof")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "Bukti pembayaran wajib diunggah"})
+	}
+
+	filename := fmt.Sprintf("proof-%d-%s", order.ID, file.Filename)
+	imagePath := "/uploads/" + filename
+	if err := c.SaveFile(file, fmt.Sprintf("./uploads/%s", filename)); err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menyimpan gambar"})
+	}
+
+	// 2. Mulai Transaksi untuk memotong stok dengan aman
+	tx := config.DB.Begin()
+
+	// Ambil semua barang di dalam pesanan ini
+	var items []models.OrderItem
+	tx.Where("order_id = ?", order.ID).Find(&items)
+
+	// Kurangi stok produknya SEKARANG
+	for _, item := range items {
+		var product models.Product
+		tx.First(&product, item.ProductID)
+		
+		// Validasi akhir: Jika ternyata dibeli orang lain duluan dan stok habis
+		if product.Stock < item.Quantity {
+			tx.Rollback()
+			return c.Status(400).JSON(fiber.Map{"message": "Maaf, stok " + product.Name + " sudah habis keduluan pembeli lain!"})
+		}
+
+		tx.Model(&models.Product{}).Where("id = ?", item.ProductID).Update("stock", config.DB.Raw("stock - ?", item.Quantity))
+	}
+
+	// 3. Update status pesanan dan simpan path gambar
+	order.PaymentProof = imagePath
+	order.Status = "Menunggu Konfirmasi" // Berubah statusnya!
+	if err := tx.Save(&order).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengupdate pesanan"})
+	}
+
+	tx.Commit()
+	return c.JSON(fiber.Map{"message": "Bukti pembayaran berhasil diunggah! Menunggu konfirmasi penjual."})
 }
 
 // Menampilkan riwayat pesanan khusus untuk pembeli yang sedang login
@@ -112,6 +157,7 @@ func GetMyOrders(c *fiber.Ctx) error {
 		TotalAmount     float64      `json:"total_amount"`
 		Status          string       `json:"status"`
 		ShippingAddress string       `json:"shipping_address"`
+		PaymentProof    string       `json:"payment_proof"` // SUDAH ADA DI SINI
 		CreatedAt       string       `json:"created_at"`
 		Items           []ItemDetail `json:"items"`
 	}
@@ -142,7 +188,7 @@ func GetMyOrders(c *fiber.Ctx) error {
 			})
 		}
 
-		// Format tanggal agar ramah dibaca manusia (Contoh: 09 Apr 2026, 14:30)
+		// Format tanggal agar ramah dibaca manusia
 		formattedDate := order.CreatedAt.Format("02 Jan 2006, 15:04")
 
 		response = append(response, OrderResponse{
@@ -150,6 +196,7 @@ func GetMyOrders(c *fiber.Ctx) error {
 			TotalAmount:     order.TotalAmount,
 			Status:          order.Status,
 			ShippingAddress: order.ShippingAddress,
+			PaymentProof:    order.PaymentProof, // SUDAH ADA DI SINI
 			CreatedAt:       formattedDate,
 			Items:           itemDetails,
 		})
@@ -183,6 +230,7 @@ func GetShopOrders(c *fiber.Ctx) error {
 		TotalAmount     float64      `json:"total_amount"`
 		Status          string       `json:"status"`
 		ShippingAddress string       `json:"shipping_address"`
+		PaymentProof    string       `json:"payment_proof"` // SUDAH DIPERBAIKI DI SINI
 		CreatedAt       string       `json:"created_at"`
 		Items           []ItemDetail `json:"items"`
 	}
@@ -216,6 +264,7 @@ func GetShopOrders(c *fiber.Ctx) error {
 			TotalAmount:     order.TotalAmount,
 			Status:          order.Status,
 			ShippingAddress: order.ShippingAddress,
+			PaymentProof:    order.PaymentProof, // SUDAH DIPERBAIKI DI SINI
 			CreatedAt:       order.CreatedAt.Format("02 Jan 2006, 15:04"),
 			Items:           itemDetails,
 		})
