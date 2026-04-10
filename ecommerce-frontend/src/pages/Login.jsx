@@ -115,7 +115,7 @@ function Login() {
   };
 
   return (
-    <GoogleOAuthProvider clientId="CLIENT_ID">
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       <div style={styles.wrapper}>
         
         {/* Panel Kiri (Hanya muncul di Desktop) */}
