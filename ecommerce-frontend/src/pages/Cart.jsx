@@ -5,10 +5,8 @@ import { useNavigate, Link } from 'react-router-dom';
 function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // STATE BARU: Menyimpan alamat pengiriman
-  const [shippingAddress, setShippingAddress] = useState('');
-  
+  const [userAddress, setUserAddress] = useState('');
+
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
@@ -17,18 +15,26 @@ function Cart() {
       navigate('/login');
       return;
     }
-    fetchCartItems();
+    fetchProfileAndCart();
   }, [navigate, token]);
 
-  const fetchCartItems = async () => {
+  const fetchProfileAndCart = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/api/user/cart', {
+      // Ambil data profil untuk mendapatkan alamat
+      const profileRes = await axios.get('http://localhost:3000/api/user/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCartItems(response.data.data || []);
+      const address = profileRes.data.data.address || '';
+      setUserAddress(address);
+
+      // Ambil data keranjang
+      const cartRes = await axios.get('http://localhost:3000/api/user/cart', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCartItems(cartRes.data.data || []);
       setIsLoading(false);
     } catch (error) {
-      console.error("Gagal mengambil data keranjang", error);
+      console.error("Gagal mengambil data", error);
       setIsLoading(false);
     }
   };
@@ -38,11 +44,11 @@ function Cart() {
     if (newQty < 1) return;
 
     try {
-      await axios.put(`http://localhost:3000/api/user/cart/${cartId}`, 
+      await axios.put(`http://localhost:3000/api/user/cart/${cartId}`,
         { quantity: newQty },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      fetchCartItems();
+      fetchProfileAndCart();
     } catch (error) {
       alert("Gagal memperbarui jumlah");
     }
@@ -54,29 +60,30 @@ function Cart() {
         await axios.delete(`http://localhost:3000/api/user/cart/${cartId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        fetchCartItems();
+        fetchProfileAndCart();
       } catch (error) {
         alert("Gagal menghapus item");
       }
     }
   };
 
-  // FUNGSI BARU: Menangani proses Checkout ke Backend
+  // FUNGSI CHECKOUT - alamat otomatis dari profil
   const handleCheckout = async () => {
-    if (!shippingAddress.trim()) {
-      alert('Mohon isi alamat pengiriman Anda terlebih dahulu!');
+    if (!userAddress.trim()) {
+      if (window.confirm("Alamat pengiriman belum diisi. Isi alamat di halaman profil sekarang?")) {
+        navigate('/profile');
+      }
       return;
     }
 
     try {
-      const response = await axios.post('http://localhost:3000/api/user/checkout', 
-        { shipping_address: shippingAddress },
+      const response = await axios.post('http://localhost:3000/api/user/checkout',
+        { shipping_address: userAddress },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       alert('🎉 ' + response.data.message);
-      // Setelah sukses, arahkan kembali ke Beranda (Nanti kita buatkan halaman Histori Pesanan)
-      navigate('/home'); 
+      navigate('/orders');
     } catch (error) {
       if (error.response) {
         alert(error.response.data.message);
@@ -106,12 +113,15 @@ function Cart() {
     summaryTitle: { margin: '0 0 25px 0', paddingBottom: '15px', borderBottom: '1px solid #f0f0f0', fontSize: '22px', fontWeight: '700' },
     grandTotal: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', fontSize: '19px', fontWeight: '600' },
     grandTotalPrice: { color: '#dc3545', fontWeight: '800' },
-    
-    // Style Form Alamat
-    addressLabel: { display: 'block', marginBottom: '10px', fontWeight: 'bold', fontSize: '15px', color: '#555' },
-    addressInput: { width: '100%', padding: '15px', borderRadius: '12px', border: '1px solid #ddd', marginBottom: '25px', fontSize: '15px', boxSizing: 'border-box', minHeight: '80px', fontFamily: 'inherit' },
-    
+
+    // Style alamat readonly
+    addressBlock: { backgroundColor: '#F1F3F5', padding: '20px', borderRadius: '12px', marginBottom: '25px' },
+    addressLabel: { display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#6c757d', textTransform: 'uppercase' },
+    addressText: { margin: 0, fontSize: '15px', color: '#333', lineHeight: '1.6' },
+    editAddressBtn: { marginTop: '10px', background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', fontWeight: '600', fontSize: '14px', padding: 0 },
+
     checkoutBtn: { width: '100%', padding: '18px', backgroundColor: '#ffc107', color: '#333', border: 'none', borderRadius: '16px', fontWeight: 'bold', fontSize: '17px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
+    noAddressBtn: { width: '100%', padding: '18px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '16px', fontWeight: 'bold', fontSize: '17px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '10px' },
   };
 
   if (isLoading) return <div style={styles.pageBackground}><h2 style={{ textAlign: 'center' }}>Memuat Keranjang...</h2></div>;
@@ -130,7 +140,7 @@ function Cart() {
         </div>
       ) : (
         <div style={styles.cartLayout}>
-          
+
           <div style={styles.itemList}>
             {cartItems.map((item, index) => (
               <div key={item.cart_id} style={{...styles.itemCard, borderBottom: index !== cartItems.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
@@ -139,7 +149,7 @@ function Cart() {
                   <p style={styles.itemPrice}>Rp {item.price.toLocaleString('id-ID')}</p>
                   <button onClick={() => removeItem(item.cart_id)} style={styles.removeBtn}>Hapus Item</button>
                 </div>
-                
+
                 <div style={{ textAlign: 'right' }}>
                   <div style={styles.quantityControl}>
                     <button onClick={() => updateQuantity(item.cart_id, item.quantity, -1)} style={styles.qtyBtn}>-</button>
@@ -154,25 +164,36 @@ function Cart() {
 
           <div style={styles.summaryCard}>
             <h3 style={styles.summaryTitle}>Ringkasan</h3>
-            
+
             <div style={styles.grandTotal}>
               <span>Total Tagihan:</span>
               <span style={styles.grandTotalPrice}>Rp {grandTotal.toLocaleString('id-ID')}</span>
             </div>
 
-            {/* FORM ALAMAT PENGIRIMAN */}
-            <div>
-              <label style={styles.addressLabel}>Alamat Pengiriman LENGKAP:</label>
-              <textarea 
-                placeholder="Contoh: Jl. Sudirman No. 123, RT 01/02, Kec. Kebayoran Baru, Jakarta Selatan 12345"
-                value={shippingAddress}
-                onChange={(e) => setShippingAddress(e.target.value)}
-                style={styles.addressInput}
-              />
+            {/* ALAMAT PENGIRIMAN DARI PROFIL */}
+            <div style={styles.addressBlock}>
+              <label style={styles.addressLabel}>Alamat Pengiriman</label>
+              {userAddress ? (
+                <>
+                  <p style={styles.addressText}>{userAddress}</p>
+                  <button onClick={() => navigate('/profile')} style={styles.editAddressBtn}>✏️ Ubah Alamat</button>
+                </>
+              ) : (
+                <>
+                  <p style={{ ...styles.addressText, color: '#dc3545', fontStyle: 'italic' }}>Belum diisi. Silakan isi di halaman profil.</p>
+                  <button onClick={() => navigate('/profile')} style={{ ...styles.noAddressBtn, marginTop: '15px', fontSize: '14px', padding: '12px' }}>
+                    📍 Isi Alamat di Profil
+                  </button>
+                </>
+              )}
             </div>
 
-            <button onClick={handleCheckout} style={styles.checkoutBtn}>
-              BAYAR SEKARANG
+            <button
+              onClick={handleCheckout}
+              style={styles.checkoutBtn}
+              disabled={!userAddress}
+            >
+              {userAddress ? '🛒 Beli Sekarang' : 'Isi Alamat Terlebih Dahulu'}
             </button>
           </div>
 

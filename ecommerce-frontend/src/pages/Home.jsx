@@ -60,6 +60,9 @@ function Home() {
           {token ? (
             <>
               <span style={{ fontSize: '15px', color: '#555' }}>Halo, {role === 'buyer' ? 'Pembeli' : role}</span>
+              <button onClick={() => navigate('/profile')} style={{ ...styles.cartBtn}}>
+                👤 Profil
+              </button>
               <button onClick={() => navigate('/orders')} style={{ ...styles.cartBtn}}>
                 📦 Pesanan Saya
               </button>

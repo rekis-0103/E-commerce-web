@@ -18,9 +18,8 @@ func Setup(app *fiber.App) {
 	api.Post("/auth/google", controllers.GoogleLogin)
 
 	protected := api.Group("/user", middleware.Protected)
-	protected.Get("/profile", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"user_id": c.Locals("user_id"), "role": c.Locals("role")})
-	})
+	protected.Get("/profile", controllers.GetProfile)
+	protected.Put("/profile", controllers.UpdateProfile)
 	protected.Post("/shop/register", controllers.CreateShop)
 	protected.Post("/cart", controllers.AddToCart)
 	protected.Get("/cart", controllers.GetMyCart)

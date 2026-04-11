@@ -3,13 +3,15 @@ package models
 import "time"
 
 type User struct {
-	ID        uint      `gorm:"primaryKey"`
-	Name      string    `json:"name"`
-	Email     string    `gorm:"unique" json:"email"`
-	Password  string    `json:"-"`
-	Role      string    `gorm:"type:enum('admin', 'seller', 'buyer');default:'buyer'" json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	
+	ID          uint      `gorm:"primaryKey"`
+	Name        string    `json:"name"`
+	Email       string    `gorm:"unique" json:"email"`
+	Password    string    `json:"-"`
+	Role        string    `gorm:"type:enum('admin', 'seller', 'buyer');default:'buyer'" json:"role"`
+	Phone       string    `json:"phone"`
+	Address     string    `json:"address"`
+	DateOfBirth string    `json:"date_of_birth"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type OTPRegistry struct {
