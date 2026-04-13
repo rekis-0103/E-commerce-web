@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ImageCropModal from '../components/ImageCropModal';
+import { FaEdit, FaTimes } from 'react-icons/fa';
 
 function SellerDashboard() {
   const navigate = useNavigate();
@@ -13,11 +15,18 @@ function SellerDashboard() {
   const [editId, setEditId] = useState(null);
   
   const [formData, setFormData] = useState({ name: '', description: '', price: '', stock: '' });
-  
+
   // State khusus untuk menampung array gambar
   const [imageFiles, setImageFiles] = useState([]); // { id, file, url, isOld }
-  
+
+  // State untuk ukuran kotak gambar (default 800x800)
+  const [imageSize, setImageSize] = useState(800);
+
   const fileInputRef = useRef(null);
+
+  // State untuk crop modal
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null); // { index, url }
 
   useEffect(() => {
     if (role !== 'seller') navigate('/login');
@@ -50,16 +59,56 @@ function SellerDashboard() {
 
   // --- LOGIKA MULTI GAMBAR ---
 
-  const handleFileChange = (e) => {
+  // Fungsi untuk crop dan resize gambar menjadi kotak
+  const cropToSquare = (file, size = 800) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+
+          // Hitung dimensi untuk crop center
+          const minSide = Math.min(img.width, img.height);
+          const sx = (img.width - minSide) / 2;
+          const sy = (img.height - minSide) / 2;
+
+          // Draw image cropped to center square and resized
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+
+          // Convert to blob
+          canvas.toBlob((blob) => {
+            resolve(blob);
+          }, 'image/jpeg', 0.9);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
-    const newImages = files.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file: file,
-      url: URL.createObjectURL(file), // Membuat URL preview sementara
-      isOld: false // Tandai sebagai file baru
-    }));
+    const newImages = [];
+
+    for (const file of files) {
+      // Crop dan resize gambar menjadi kotak
+      const croppedBlob = await cropToSquare(file, imageSize);
+      const croppedFile = new File([croppedBlob], file.name.replace(/\.[^/.]+$/, '.jpg'), { type: 'image/jpeg' });
+      
+      newImages.push({
+        id: Math.random().toString(36).substr(2, 9),
+        file: croppedFile,
+        url: URL.createObjectURL(croppedFile),
+        isOld: false
+      });
+    }
+
     setImageFiles([...imageFiles, ...newImages]);
-    
+
     // Reset input file agar bisa pilih file yang sama lagi jika dihapus
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -78,6 +127,39 @@ function SellerDashboard() {
     setImageFiles(imageFiles.filter((_, i) => i !== index));
   };
 
+  // Fungsi untuk membuka crop modal
+  const openCropModal = (index) => {
+    setImageToCrop({ index, url: imageFiles[index].url });
+    setShowCropModal(true);
+  };
+
+  // Fungsi ketika crop selesai
+  const handleCropComplete = async (croppedFile) => {
+    if (imageToCrop === null) return;
+
+    console.log('Crop complete dipanggil dengan file:', croppedFile);
+
+    const newImages = [...imageFiles];
+    const oldImage = newImages[imageToCrop.index];
+
+    // Hapus URL lama jika ada
+    if (oldImage.url && oldImage.url.startsWith('blob:')) {
+      URL.revokeObjectURL(oldImage.url);
+    }
+
+    // Ganti dengan gambar yang sudah di-crop
+    newImages[imageToCrop.index] = {
+      id: oldImage.id,
+      file: croppedFile,
+      url: URL.createObjectURL(croppedFile),
+      isOld: false // Karena sudah di-edit, anggap sebagai gambar baru
+    };
+
+    console.log('Image files setelah crop:', newImages);
+    setImageFiles(newImages);
+    setImageToCrop(null);
+  };
+
   // Membantu mengubah string JSON dari database menjadi array asli
   const parseImages = (imageString) => {
     try {
@@ -92,12 +174,14 @@ function SellerDashboard() {
   const openCreateForm = () => {
     setFormData({ name: '', description: '', price: '', stock: '' });
     setImageFiles([]); // Kosongkan daftar gambar
+    setImageSize(800); // Reset ke ukuran default
     setIsEditing(false);
     setShowForm(true);
   };
 
   const openEditForm = (product) => {
     setFormData({ name: product.name, description: product.description, price: product.price, stock: product.stock });
+    setImageSize(800); // Reset ke ukuran default untuk edit
     
     // Tarik gambar lama dari database
     const oldImages = parseImages(product.image).map(url => ({
@@ -179,7 +263,8 @@ function SellerDashboard() {
     imgPreview: { width: '100%', height: '100%', objectFit: 'cover' },
     imgControls: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'space-between', padding: '5px' },
     ctrlBtn: { background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' },
-    removeBtn: { position: 'absolute', top: '5px', right: '5px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '50%', width: '25px', height: '25px', cursor: 'pointer' }
+    removeBtn: { position: 'absolute', top: '5px', right: '5px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '50%', width: '25px', height: '25px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    editBtn: { position: 'absolute', top: '5px', left: '5px', backgroundColor: '#ffc107', color: '#333', border: 'none', borderRadius: '50%', width: '25px', height: '25px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
   };
 
   return (
@@ -217,13 +302,29 @@ function SellerDashboard() {
             {/* AREA UPLOAD MULTI GAMBAR */}
             <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '20px' }}>
               <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>Foto Produk (Bisa pilih banyak)</label>
-              
-              <input 
-                type="file" 
-                accept="image/*" 
-                multiple 
+
+              {/* Input Ukuran Gambar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
+                <span style={{ fontSize: '14px', color: '#666' }}>📐 Ukuran Gambar (kotak):</span>
+                <input 
+                  type="number" 
+                  value={imageSize} 
+                  onChange={(e) => setImageSize(parseInt(e.target.value) || 800)}
+                  min="100"
+                  max="2000"
+                  step="100"
+                  style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #ddd', textAlign: 'center' }}
+                />
+                <span style={{ fontSize: '14px', color: '#666' }}>x {imageSize} px</span>
+                <span style={{ fontSize: '12px', color: '#999', marginLeft: 'auto' }}>Gambar otomatis di-crop jadi kotak dari tengah</span>
+              </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                multiple
                 ref={fileInputRef}
-                onChange={handleFileChange} 
+                onChange={handleFileChange}
               />
               
               {/* Galeri Preview yang bisa di-reorder */}
@@ -231,9 +332,20 @@ function SellerDashboard() {
                 {imageFiles.map((img, index) => (
                   <div key={img.id} style={styles.imgCard}>
                     <img src={img.url} alt="preview" style={styles.imgPreview} />
-                    
-                    <button type="button" onClick={() => removeImage(index)} style={styles.removeBtn}>✕</button>
-                    
+
+                    <button
+                      type="button"
+                      onClick={() => openCropModal(index)}
+                      style={styles.editBtn}
+                      title="Edit/Crop Gambar"
+                    >
+                      <FaEdit size={12} />
+                    </button>
+
+                    <button type="button" onClick={() => removeImage(index)} style={styles.removeBtn}>
+                      <FaTimes size={12} />
+                    </button>
+
                     <div style={styles.imgControls}>
                       <button type="button" onClick={() => moveImage(index, 'left')} style={styles.ctrlBtn} disabled={index === 0}>◀</button>
                       <span style={{color: 'white', fontSize: '12px'}}>{index === 0 ? 'Utama' : index+1}</span>
@@ -277,6 +389,18 @@ function SellerDashboard() {
           })}
         </div>
       </div>
+      
+      {/* Crop Modal */}
+      <ImageCropModal
+        isOpen={showCropModal}
+        onClose={() => {
+          setShowCropModal(false);
+          setImageToCrop(null);
+        }}
+        imageSrc={imageToCrop?.url}
+        imageSize={imageSize}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 }

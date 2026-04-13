@@ -46,8 +46,8 @@ function Home() {
     container: { padding: '60px' },
     productGrid: { display: 'flex', flexWrap: 'wrap', gap: '30px' },
     productCard: { width: '250px', backgroundColor: '#FFFFFF', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', transition: 'transform 0.2s', border: '1px solid #f0f0f0', cursor: 'pointer', display: 'flex', flexDirection: 'column' },
-    productImageWrap: { height: '200px', backgroundColor: '#F1F3F5', marginBottom: '15px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#adb5bd', overflow: 'hidden' },
-    imgActual: { width: '100%', height: '100%', objectFit: 'cover' },
+    productImageWrap: { width: '210px', height: '210px', backgroundColor: '#F1F3F5', marginBottom: '15px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#adb5bd', overflow: 'hidden' },
+    imgActual: { width: '100%', height: '100%', objectFit: 'contain' },
     productName: { margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     productPrice: { color: '#28a745', margin: 'auto 0 0 0', fontSize: '20px', fontWeight: '800' }
   };

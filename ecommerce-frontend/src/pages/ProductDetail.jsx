@@ -76,12 +76,12 @@ function ProductDetail() {
     layout: { display: 'flex', gap: '40px', backgroundColor: '#FFFFFF', padding: '40px', borderRadius: '24px', boxShadow: '0 8px 24px rgba(0,0,0,0.05)' },
     
     gallerySection: { flex: '1', display: 'flex', flexDirection: 'column', gap: '15px' },
-    mainImageWrap: { position: 'relative', width: '100%', height: '450px', backgroundColor: '#F1F3F5', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-    mainImageActual: { width: '100%', height: '100%', objectFit: 'cover' },
+    mainImageWrap: { position: 'relative', width: '450px', height: '450px', backgroundColor: '#F1F3F5', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    mainImageActual: { width: '100%', height: '100%', objectFit: 'contain' },
     navArrowLeft: { position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' },
     navArrowRight: { position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', backgroundColor: 'rgba(255,255,255,0.8)', border: 'none', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' },
     thumbnailList: { display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' },
-    thumbnail: { width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', border: '2px solid transparent', transition: 'border 0.2s' },
+    thumbnail: { width: '80px', height: '80px', objectFit: 'contain', borderRadius: '8px', cursor: 'pointer', border: '2px solid transparent', transition: 'border 0.2s', backgroundColor: '#F1F3F5' },
     
     detailSection: { flex: '1.2', display: 'flex', flexDirection: 'column' },
     title: { fontSize: '32px', fontWeight: '800', margin: '0 0 10px 0', color: '#333' },

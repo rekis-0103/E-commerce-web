@@ -33,13 +33,31 @@ func main() {
 
 	app := fiber.New()
 
+	// Middleware CORS manual untuk SEMUA request (termasuk static files)
+	app.Use(func(c *fiber.Ctx) error {
+		c.Set("Access-Control-Allow-Origin", "*")
+		c.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		
+		// Handle preflight requests
+		if c.Method() == "OPTIONS" {
+			return c.SendStatus(204)
+		}
+		
+		return c.Next()
+	})
+
 	// Mengizinkan Frontend (React) mengakses Backend
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*", 
+		AllowOrigins: "*",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
-	app.Static("/uploads", "./uploads")
+	// Serve static files
+	app.Static("/uploads", "./uploads", fiber.Static{
+		Compress: true,
+		MaxAge:   3600,
+	})
 
 	// Panggil file routes
 	routes.Setup(app)
