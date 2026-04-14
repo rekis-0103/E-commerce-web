@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTheme, DarkModeToggle } from '../context/ThemeContext';
+import { motion } from 'framer-motion';
+import { FaArrowLeft, FaShoppingCart, FaTrash, FaMinus, FaPlus } from 'react-icons/fa';
 
 function Cart() {
+  const { theme } = useTheme();
   const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userAddress, setUserAddress] = useState('');
@@ -20,14 +24,12 @@ function Cart() {
 
   const fetchProfileAndCart = async () => {
     try {
-      // Ambil data profil untuk mendapatkan alamat
       const profileRes = await axios.get('http://localhost:3000/api/user/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const address = profileRes.data.data.address || '';
       setUserAddress(address);
 
-      // Ambil data keranjang
       const cartRes = await axios.get('http://localhost:3000/api/user/cart', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -67,7 +69,6 @@ function Cart() {
     }
   };
 
-  // FUNGSI CHECKOUT - alamat otomatis dari profil
   const handleCheckout = async () => {
     if (!userAddress.trim()) {
       if (window.confirm("Alamat pengiriman belum diisi. Isi alamat di halaman profil sekarang?")) {
@@ -95,108 +96,304 @@ function Cart() {
 
   const grandTotal = cartItems.reduce((sum, item) => sum + item.total, 0);
 
-  const styles = {
-    pageBackground: { fontFamily: "'Segoe UI', Roboto, sans-serif", backgroundColor: '#F8F9FA', minHeight: '100vh', padding: '60px' },
-    backLink: { textDecoration: 'none', color: '#007bff', fontWeight: '600', fontSize: '16px', display: 'inline-block', marginBottom: '30px' },
-    pageTitle: { fontSize: '32px', fontWeight: '800', marginBottom: '40px', color: '#333' },
-    emptyCart: { textAlign: 'center', padding: '80px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: '0 8px 16px rgba(0,0,0,0.04)' },
-    cartLayout: { display: 'flex', gap: '40px' },
-    itemList: { flex: '2', backgroundColor: '#FFFFFF', padding: '30px', borderRadius: '24px', boxShadow: '0 8px 16px rgba(0,0,0,0.04)' },
-    itemCard: { display: 'flex', justifyContent: 'space-between', padding: '25px 0', alignItems: 'center' },
-    itemName: { margin: '0 0 5px 0', fontSize: '19px', fontWeight: '700', color: '#333' },
-    itemPrice: { margin: 0, color: '#6c757d', fontSize: '15px' },
-    removeBtn: { color: '#dc3545', border: 'none', background: 'none', cursor: 'pointer', padding: 0, marginTop: '10px', fontSize: '14px', fontWeight: '600' },
-    quantityControl: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px', backgroundColor: '#F1F3F5', padding: '5px 15px', borderRadius: '20px' },
-    qtyBtn: { padding: '4px 10px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '50%', cursor: 'pointer', fontSize: '16px' },
-    qtyTotal: { margin: 0, color: '#28a745', fontSize: '20px', fontWeight: '800' },
-    summaryCard: { flex: '1', backgroundColor: '#FFFFFF', padding: '30px', borderRadius: '24px', height: 'fit-content', boxShadow: '0 12px 24px rgba(0,0,0,0.06)', position: 'sticky', top: '100px' },
-    summaryTitle: { margin: '0 0 25px 0', paddingBottom: '15px', borderBottom: '1px solid #f0f0f0', fontSize: '22px', fontWeight: '700' },
-    grandTotal: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', fontSize: '19px', fontWeight: '600' },
-    grandTotalPrice: { color: '#dc3545', fontWeight: '800' },
-
-    // Style alamat readonly
-    addressBlock: { backgroundColor: '#F1F3F5', padding: '20px', borderRadius: '12px', marginBottom: '25px' },
-    addressLabel: { display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '13px', color: '#6c757d', textTransform: 'uppercase' },
-    addressText: { margin: 0, fontSize: '15px', color: '#333', lineHeight: '1.6' },
-    editAddressBtn: { marginTop: '10px', background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', fontWeight: '600', fontSize: '14px', padding: 0 },
-
-    checkoutBtn: { width: '100%', padding: '18px', backgroundColor: '#ffc107', color: '#333', border: 'none', borderRadius: '16px', fontWeight: 'bold', fontSize: '17px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
-    noAddressBtn: { width: '100%', padding: '18px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '16px', fontWeight: 'bold', fontSize: '17px', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '10px' },
-  };
-
-  if (isLoading) return <div style={styles.pageBackground}><h2 style={{ textAlign: 'center' }}>Memuat Keranjang...</h2></div>;
+  if (isLoading) return (
+    <div style={{ fontFamily: "'Inter', sans-serif", background: theme.bg, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <h2 style={{ color: theme.textSecondary }}>Memuat Keranjang...</h2>
+    </div>
+  );
 
   return (
-    <div style={styles.pageBackground}>
-      <Link to="/home" style={styles.backLink}>← Kembali Berbelanja</Link>
-      <h2 style={styles.pageTitle}>Keranjang Belanja</h2>
+    <div style={{ fontFamily: "'Inter', sans-serif", background: theme.bg, minHeight: '100vh', padding: '40px 60px', transition: 'all 0.3s ease' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
+        <Link to="/home" style={{ textDecoration: 'none', color: theme.primary, fontWeight: 600, fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <FaArrowLeft /> Kembali Berbelanja
+        </Link>
+        <DarkModeToggle />
+      </div>
+
+      <motion.h2
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{ fontSize: 36, fontWeight: 800, marginBottom: 40, color: theme.text, fontFamily: "'Poppins', sans-serif" }}
+      >
+        Keranjang Belanja
+      </motion.h2>
 
       {cartItems.length === 0 ? (
-        <div style={styles.emptyCart}>
-          <h3 style={{ color: '#6c757d', marginBottom: '20px' }}>Keranjang Anda masih kosong.</h3>
-          <button onClick={() => navigate('/home')} style={{ padding: '12px 30px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '25px', cursor: 'pointer', fontWeight: 'bold' }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={{
+            textAlign: 'center',
+            padding: 80,
+            backgroundColor: theme.cardBg,
+            borderRadius: 24,
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`
+          }}
+        >
+          <FaShoppingCart style={{ fontSize: 60, color: theme.textSecondary, marginBottom: 20 }} />
+          <h3 style={{ color: theme.textSecondary, marginBottom: 20 }}>Keranjang Anda masih kosong.</h3>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/home')}
+            style={{
+              padding: '12px 30px',
+              backgroundColor: theme.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: 25,
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: 16
+            }}
+          >
             Mulai Belanja
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       ) : (
-        <div style={styles.cartLayout}>
-
-          <div style={styles.itemList}>
+        <div style={{ display: 'flex', gap: 40 }}>
+          {/* Item List */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            style={{
+              flex: 2,
+              backgroundColor: theme.cardBg,
+              padding: 30,
+              borderRadius: 24,
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`
+            }}
+          >
             {cartItems.map((item, index) => (
-              <div key={item.cart_id} style={{...styles.itemCard, borderBottom: index !== cartItems.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+              <div key={item.cart_id} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '25px 0',
+                alignItems: 'center',
+                borderBottom: index !== cartItems.length - 1 ? `1px solid ${theme.border}` : 'none'
+              }}>
                 <div>
-                  <h4 style={styles.itemName}>{item.name}</h4>
-                  <p style={styles.itemPrice}>Rp {item.price.toLocaleString('id-ID')}</p>
-                  <button onClick={() => removeItem(item.cart_id)} style={styles.removeBtn}>Hapus Item</button>
+                  <h4 style={{ margin: '0 0 5px 0', fontSize: 19, fontWeight: 700, color: theme.text }}>
+                    {item.name}
+                  </h4>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: 15 }}>
+                    Rp {item.price.toLocaleString('id-ID')}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => removeItem(item.cart_id)}
+                    style={{
+                      color: '#EF4444',
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      padding: 0,
+                      marginTop: 10,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <FaTrash /> Hapus Item
+                  </motion.button>
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
-                  <div style={styles.quantityControl}>
-                    <button onClick={() => updateQuantity(item.cart_id, item.quantity, -1)} style={styles.qtyBtn}>-</button>
-                    <span style={{ fontWeight: 'bold', fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.cart_id, item.quantity, 1)} style={styles.qtyBtn}>+</button>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    marginBottom: 10,
+                    backgroundColor: theme.bg,
+                    padding: '5px 15px',
+                    borderRadius: 20
+                  }}>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => updateQuantity(item.cart_id, item.quantity, -1)}
+                      style={{
+                        padding: '4px 10px',
+                        backgroundColor: theme.cardBg,
+                        border: `1px solid ${theme.border}`,
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        color: theme.text,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <FaMinus size={12} />
+                    </motion.button>
+                    <span style={{ fontWeight: 'bold', fontSize: 16, minWidth: 20, textAlign: 'center', color: theme.text }}>
+                      {item.quantity}
+                    </span>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => updateQuantity(item.cart_id, item.quantity, 1)}
+                      style={{
+                        padding: '4px 10px',
+                        backgroundColor: theme.cardBg,
+                        border: `1px solid ${theme.border}`,
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        fontSize: 16,
+                        color: theme.text,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <FaPlus size={12} />
+                    </motion.button>
                   </div>
-                  <h4 style={styles.qtyTotal}>Rp {item.total.toLocaleString('id-ID')}</h4>
+                  <h4 style={{ margin: 0, color: '#10B981', fontSize: 20, fontWeight: 800 }}>
+                    Rp {item.total.toLocaleString('id-ID')}
+                  </h4>
                 </div>
               </div>
             ))}
-          </div>
+          </motion.div>
 
-          <div style={styles.summaryCard}>
-            <h3 style={styles.summaryTitle}>Ringkasan</h3>
+          {/* Summary Card */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            style={{
+              flex: 1,
+              backgroundColor: theme.cardBg,
+              padding: 30,
+              borderRadius: 24,
+              height: 'fit-content',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              position: 'sticky',
+              top: 100
+            }}
+          >
+            <h3 style={{
+              margin: '0 0 25px 0',
+              paddingBottom: 15,
+              borderBottom: `1px solid ${theme.border}`,
+              fontSize: 22,
+              fontWeight: 700,
+              color: theme.text
+            }}>
+              Ringkasan
+            </h3>
 
-            <div style={styles.grandTotal}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: 30,
+              fontSize: 19,
+              fontWeight: 600,
+              color: theme.text
+            }}>
               <span>Total Tagihan:</span>
-              <span style={styles.grandTotalPrice}>Rp {grandTotal.toLocaleString('id-ID')}</span>
+              <span style={{ color: '#EF4444', fontWeight: 800, fontSize: 24 }}>
+                Rp {grandTotal.toLocaleString('id-ID')}
+              </span>
             </div>
 
-            {/* ALAMAT PENGIRIMAN DARI PROFIL */}
-            <div style={styles.addressBlock}>
-              <label style={styles.addressLabel}>Alamat Pengiriman</label>
+            {/* Address Block */}
+            <div style={{
+              backgroundColor: theme.bg,
+              padding: 20,
+              borderRadius: 12,
+              marginBottom: 25
+            }}>
+              <label style={{
+                display: 'block',
+                marginBottom: 8,
+                fontWeight: 'bold',
+                fontSize: 13,
+                color: theme.textSecondary,
+                textTransform: 'uppercase'
+              }}>
+                Alamat Pengiriman
+              </label>
               {userAddress ? (
                 <>
-                  <p style={styles.addressText}>{userAddress}</p>
-                  <button onClick={() => navigate('/profile')} style={styles.editAddressBtn}>✏️ Ubah Alamat</button>
+                  <p style={{ margin: 0, fontSize: 15, color: theme.text, lineHeight: 1.6 }}>
+                    {userAddress}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => navigate('/profile')}
+                    style={{
+                      marginTop: 10,
+                      background: 'none',
+                      border: 'none',
+                      color: theme.primary,
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: 14,
+                      padding: 0
+                    }}
+                  >
+                    ✏️ Ubah Alamat
+                  </motion.button>
                 </>
               ) : (
                 <>
-                  <p style={{ ...styles.addressText, color: '#dc3545', fontStyle: 'italic' }}>Belum diisi. Silakan isi di halaman profil.</p>
-                  <button onClick={() => navigate('/profile')} style={{ ...styles.noAddressBtn, marginTop: '15px', fontSize: '14px', padding: '12px' }}>
+                  <p style={{ margin: 0, fontSize: 15, color: '#EF4444', fontStyle: 'italic' }}>
+                    Belum diisi. Silakan isi di halaman profil.
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => navigate('/profile')}
+                    style={{
+                      marginTop: 15,
+                      width: '100%',
+                      padding: 12,
+                      backgroundColor: '#EF4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 16,
+                      fontWeight: 600,
+                      fontSize: 14,
+                      cursor: 'pointer'
+                    }}
+                  >
                     📍 Isi Alamat di Profil
-                  </button>
+                  </motion.button>
                 </>
               )}
             </div>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleCheckout}
-              style={styles.checkoutBtn}
               disabled={!userAddress}
+              style={{
+                width: '100%',
+                padding: 18,
+                backgroundColor: userAddress ? theme.primary : theme.textSecondary,
+                color: 'white',
+                border: 'none',
+                borderRadius: 16,
+                fontWeight: 'bold',
+                fontSize: 17,
+                cursor: userAddress ? 'pointer' : 'not-allowed',
+                boxShadow: userAddress ? '0 4px 6px rgba(37, 99, 235, 0.3)' : 'none'
+              }}
             >
               {userAddress ? '🛒 Beli Sekarang' : 'Isi Alamat Terlebih Dahulu'}
-            </button>
-          </div>
-
+            </motion.button>
+          </motion.div>
         </div>
       )}
     </div>

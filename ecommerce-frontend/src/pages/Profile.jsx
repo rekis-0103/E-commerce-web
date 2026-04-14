@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaLock, FaSave, FaArrowLeft, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { useTheme, DarkModeToggle } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
+import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaLock, FaSave, FaArrowLeft, FaEye, FaEyeSlash } from 'react-icons/fa';
 
 function Profile() {
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
 
-  // State profil
   const [profile, setProfile] = useState({
     name: '',
     email: '',
@@ -18,7 +19,6 @@ function Profile() {
     date_of_birth: '',
   });
 
-  // State untuk password
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -62,7 +62,6 @@ function Profile() {
   const handleSave = async (e) => {
     e.preventDefault();
 
-    // Validasi password jika diisi
     if (password || confirmPassword) {
       if (password !== confirmPassword) {
         alert("Password dan konfirmasi password tidak cocok!");
@@ -83,7 +82,6 @@ function Profile() {
         date_of_birth: profile.date_of_birth,
       };
 
-      // Hanya kirim password jika diisi
       if (password) {
         payload.password = password;
       }
@@ -102,26 +100,6 @@ function Profile() {
     setIsSaving(false);
   };
 
-  // Tema desain yang konsisten dengan Login.jsx
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('darkMode') === 'true';
-  });
-
-  const theme = {
-    bg: darkMode ? '#0F172A' : '#F9FAFB',
-    cardBg: darkMode ? '#1E293B' : '#FFFFFF',
-    text: darkMode ? '#F9FAFB' : '#111827',
-    textSecondary: darkMode ? '#9CA3AF' : '#6B7280',
-    border: darkMode ? '#374151' : '#E5E7EB',
-    inputBg: darkMode ? '#1E293B' : '#FFFFFF',
-    inputBorder: darkMode ? '#374151' : '#E5E7EB',
-    primary: '#2563EB',
-    primaryHover: '#1D4ED8',
-    gradient: darkMode
-      ? 'linear-gradient(135deg, #1E3A8A, #1E40AF)'
-      : 'linear-gradient(135deg, #111827, #374151)',
-  };
-
   if (isLoading) {
     return (
       <div style={{ fontFamily: "'Inter', sans-serif", background: theme.bg, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -135,34 +113,11 @@ function Profile() {
       <div style={{ maxWidth: '700px', margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
           <Link to="/home" style={{ textDecoration: 'none', color: theme.primary, fontWeight: 600, fontSize: 15, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <FaArrowLeft /> Kembali Berbelanja
           </Link>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setDarkMode(!darkMode);
-              localStorage.setItem('darkMode', !darkMode);
-            }}
-            style={{
-              background: theme.cardBg,
-              border: `1px solid ${theme.border}`,
-              borderRadius: '50%',
-              width: 48,
-              height: 48,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: 20,
-              color: theme.text,
-              transition: 'all 0.3s ease',
-            }}
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </motion.button>
+          <DarkModeToggle />
         </div>
 
         {/* Form Card */}
@@ -173,9 +128,7 @@ function Profile() {
             background: theme.cardBg,
             borderRadius: 24,
             padding: '48px 40px',
-            boxShadow: darkMode
-              ? '0 20px 60px rgba(0, 0, 0, 0.4)'
-              : '0 20px 60px rgba(0, 0, 0, 0.1)',
+            boxShadow: theme.shadow,
             border: `1px solid ${theme.border}`,
           }}
         >
@@ -219,7 +172,7 @@ function Profile() {
                   padding: '16px 16px 16px 48px',
                   borderRadius: 12,
                   border: `2px solid ${theme.border}`,
-                  background: darkMode ? '#0F172A' : '#F3F4F6',
+                  background: theme.bg,
                   color: theme.textSecondary,
                   fontSize: 15,
                   outline: 'none',
@@ -384,7 +337,6 @@ function Profile() {
   );
 }
 
-// Komponen Input dengan Ikon
 const InputWithIcon = ({ icon, label, type = 'text', value, onChange, placeholder, theme }) => (
   <div style={{ position: 'relative', marginBottom: 20 }}>
     <span style={{
@@ -427,7 +379,6 @@ const InputWithIcon = ({ icon, label, type = 'text', value, onChange, placeholde
   </div>
 );
 
-// Komponen Password Input dengan Toggle
 const PasswordInput = ({ icon, label, value, onChange, showPassword, setShowPassword, placeholder, theme }) => (
   <div style={{ position: 'relative', marginBottom: 20 }}>
     <span style={{
