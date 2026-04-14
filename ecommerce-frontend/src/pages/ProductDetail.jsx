@@ -125,8 +125,6 @@ function ProductDetail() {
                 {images.length > 1 && (
                   <>
                     <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
                       onClick={prevImage}
                       style={{
                         position: 'absolute',
@@ -150,8 +148,6 @@ function ProductDetail() {
                       <FaChevronLeft />
                     </motion.button>
                     <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
                       onClick={nextImage}
                       style={{
                         position: 'absolute',
