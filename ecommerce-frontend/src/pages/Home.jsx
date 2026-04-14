@@ -8,6 +8,7 @@ import { FaShoppingCart, FaUser, FaSignOutAlt, FaBox, FaHome } from 'react-icons
 function Home() {
   const { theme, darkMode } = useTheme();
   const [products, setProducts] = useState([]);
+  const [userName, setUserName] = useState('');
   const navigate = useNavigate();
 
   const role = localStorage.getItem('role');
@@ -23,7 +24,18 @@ function Home() {
       }
     };
     fetchAllProducts();
-  }, []);
+
+    // Ambil nama user dari profil
+    if (token) {
+      axios.get('http://localhost:3000/api/user/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(res => {
+        const fullName = res.data.data.name || '';
+        // Ambil kata pertama saja
+        setUserName(fullName.split(' ')[0]);
+      }).catch(() => {});
+    }
+  }, [token]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -73,7 +85,7 @@ function Home() {
           {token ? (
             <>
               <span style={{ fontSize: 15, color: theme.textSecondary, fontWeight: 500 }}>
-                Halo, {role === 'buyer' ? 'Pembeli' : role === 'seller' ? 'Penjual' : 'Admin'}
+                Halo, {userName || (role === 'buyer' ? 'Pembeli' : role === 'seller' ? 'Penjual' : 'Admin')}
               </span>
 
               {role === 'seller' && (

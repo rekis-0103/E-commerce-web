@@ -79,6 +79,7 @@ function Login() {
       const res = await axios.post('http://localhost:3000/api/login', { email, password });
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('role', res.data.role);
+      localStorage.removeItem('loginMethod');
       res.data.role === 'seller' ? navigate('/dashboard') : navigate('/home');
     } catch {
       alert("Email atau password salah!");
@@ -125,6 +126,8 @@ function Login() {
         token: res.credential
       });
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('role', response.data.role);
+      localStorage.setItem('loginMethod', 'google');
       navigate('/home');
     } catch {
       alert("Google gagal");

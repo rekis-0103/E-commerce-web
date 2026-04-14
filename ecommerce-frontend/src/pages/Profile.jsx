@@ -10,6 +10,7 @@ function Profile() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
+  const isGoogleLogin = localStorage.getItem('loginMethod') === 'google';
 
   const [profile, setProfile] = useState({
     name: '',
@@ -62,7 +63,8 @@ function Profile() {
   const handleSave = async (e) => {
     e.preventDefault();
 
-    if (password || confirmPassword) {
+    // Validasi password hanya jika bukan login Google
+    if (!isGoogleLogin && (password || confirmPassword)) {
       if (password !== confirmPassword) {
         alert("Password dan konfirmasi password tidak cocok!");
         return;
@@ -82,7 +84,8 @@ function Profile() {
         date_of_birth: profile.date_of_birth,
       };
 
-      if (password) {
+      // Hanya kirim password jika diisi dan bukan login Google
+      if (password && !isGoogleLogin) {
         payload.password = password;
       }
 
@@ -250,41 +253,60 @@ function Profile() {
               />
             </div>
 
-            {/* Pembatas */}
-            <div style={{
-              margin: '30px 0',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-            }}>
-              <div style={{ flex: 1, height: 1, background: theme.border }} />
-              <span style={{ fontSize: 14, color: theme.textSecondary, fontWeight: 600 }}>Ubah Password</span>
-              <div style={{ flex: 1, height: 1, background: theme.border }} />
-            </div>
+            {/* Pembatas - Hanya tampil jika bukan login Google */}
+            {!isGoogleLogin && (
+              <>
+                <div style={{
+                  margin: '30px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                }}>
+                  <div style={{ flex: 1, height: 1, background: theme.border }} />
+                  <span style={{ fontSize: 14, color: theme.textSecondary, fontWeight: 600 }}>Ubah Password</span>
+                  <div style={{ flex: 1, height: 1, background: theme.border }} />
+                </div>
 
-            {/* Password Baru */}
-            <PasswordInput
-              icon={<FaLock />}
-              label="Password Baru"
-              value={password}
-              onChange={setPassword}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              placeholder="Kosongkan jika tidak ingin diubah"
-              theme={theme}
-            />
+                {/* Password Baru */}
+                <PasswordInput
+                  icon={<FaLock />}
+                  label="Password Baru"
+                  value={password}
+                  onChange={setPassword}
+                  showPassword={showPassword}
+                  setShowPassword={setShowPassword}
+                  placeholder="Kosongkan jika tidak ingin diubah"
+                  theme={theme}
+                />
 
-            {/* Konfirmasi Password */}
-            <PasswordInput
-              icon={<FaLock />}
-              label="Konfirmasi Password"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              showPassword={showConfirmPassword}
-              setShowPassword={setConfirmShowPassword}
-              placeholder="Ulangi password baru"
-              theme={theme}
-            />
+                {/* Konfirmasi Password */}
+                <PasswordInput
+                  icon={<FaLock />}
+                  label="Konfirmasi Password"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  showPassword={showConfirmPassword}
+                  setShowPassword={setConfirmShowPassword}
+                  placeholder="Ulangi password baru"
+                  theme={theme}
+                />
+              </>
+            )}
+
+            {isGoogleLogin && (
+              <div style={{
+                margin: '30px 0',
+                padding: '16px 20px',
+                backgroundColor: theme.bg,
+                borderRadius: 12,
+                border: `1px solid ${theme.border}`,
+                textAlign: 'center'
+              }}>
+                <p style={{ fontSize: 14, color: theme.textSecondary, margin: 0 }}>
+                  🔒 Akun ini login menggunakan Google. Password dikelola melalui akun Google Anda.
+                </p>
+              </div>
+            )}
 
             {/* Tombol Simpan */}
             <motion.button

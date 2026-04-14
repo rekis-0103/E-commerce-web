@@ -13,6 +13,7 @@ function SellerDashboard() {
   const token = localStorage.getItem('token');
 
   const [products, setProducts] = useState([]);
+  const [userName, setUserName] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -27,7 +28,16 @@ function SellerDashboard() {
 
   useEffect(() => {
     if (role !== 'seller') navigate('/login');
-    else fetchProducts();
+    else {
+      fetchProducts();
+      // Ambil nama user dari profil
+      axios.get('http://localhost:3000/api/user/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(res => {
+        const fullName = res.data.data.name || '';
+        setUserName(fullName.split(' ')[0]);
+      }).catch(() => {});
+    }
   }, [role, navigate]);
 
   const fetchProducts = async () => {
@@ -230,7 +240,7 @@ function SellerDashboard() {
           animate={{ opacity: 1, y: 0 }}
           style={{ fontSize: 32, fontWeight: 800, margin: 0, color: theme.text, fontFamily: "'Poppins', sans-serif" }}
         >
-          Dashboard Penjual
+          Halo, {userName || 'Penjual'}
         </motion.h2>
 
         <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
