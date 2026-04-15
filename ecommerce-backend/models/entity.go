@@ -7,7 +7,7 @@ type User struct {
 	Name        string    `json:"name"`
 	Email       string    `gorm:"unique" json:"email"`
 	Password    string    `json:"-"`
-	Role        string    `gorm:"type:enum('admin', 'seller', 'buyer');default:'buyer'" json:"role"`
+	Role        string    `gorm:"type:enum('admin', 'seller', 'buyer', 'courier', 'warehouse_staff');default:'buyer'" json:"role"`
 	Phone       string    `json:"phone"`
 	Address     string    `json:"address"`
 	DateOfBirth string    `json:"date_of_birth"`

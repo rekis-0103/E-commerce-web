@@ -9,6 +9,8 @@ import ProductDetail from './pages/ProductDetail';
 import OrderHistory from './pages/OrderHistory';
 import ShopOrders from './pages/ShopOrders';
 import Profile from './pages/Profile';
+import TrackingPage from './pages/TrackingPage';
+import ShipmentManagement from './pages/ShipmentManagement';
 
 function App() {
   return (
@@ -25,6 +27,8 @@ function App() {
           <Route path="/orders" element={<OrderHistory />} />
           <Route path="/shop-orders" element={<ShopOrders />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/tracking" element={<TrackingPage />} />
+          <Route path="/shipment-management" element={<ShipmentManagement />} />
         </Routes>
       </Router>
     </ThemeProvider>

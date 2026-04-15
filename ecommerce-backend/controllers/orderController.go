@@ -295,6 +295,14 @@ func UpdateOrderStatus(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
 	}
 
+	// Jika status berubah jadi "Dikirim", buat shipment otomatis
+	if req.Status == "Dikirim" {
+		_, err := CreateShipment(order.ID, "Kurir Toko", order.ShippingAddress, 3)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat data pengiriman"})
+		}
+	}
+
 	// Update status di database
 	order.Status = req.Status
 	config.DB.Save(&order)

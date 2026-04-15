@@ -72,3 +72,21 @@ func IsSeller(c *fiber.Ctx) error {
 	}
 	return c.Next()
 }
+
+// Fungsi untuk membatasi akses khusus Kurir (Courier)
+func IsCourier(c *fiber.Ctx) error {
+	role := c.Locals("role")
+	if role != "courier" {
+		return c.Status(403).JSON(fiber.Map{"message": "Akses ditolak. Anda bukan Kurir!"})
+	}
+	return c.Next()
+}
+
+// Fungsi untuk membatasi akses khusus Staff Gudang (Warehouse Staff)
+func IsWarehouseStaff(c *fiber.Ctx) error {
+	role := c.Locals("role")
+	if role != "warehouse_staff" {
+		return c.Status(403).JSON(fiber.Map{"message": "Akses ditolak. Anda bukan Staff Gudang!"})
+	}
+	return c.Next()
+}

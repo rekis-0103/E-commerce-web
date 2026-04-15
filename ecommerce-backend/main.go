@@ -22,13 +22,15 @@ func main() {
 	config.ConnectDB()
 
 	config.DB.AutoMigrate(
-		&models.User{}, 
-		&models.Shop{}, 
-		&models.Product{}, 
-		&models.Cart{}, 
-		&models.Order{}, 
+		&models.User{},
+		&models.Shop{},
+		&models.Product{},
+		&models.Cart{},
+		&models.Order{},
 		&models.OrderItem{},
-		&models.OTPRegistry{}, 
+		&models.OTPRegistry{},
+		&models.Shipment{},
+		&models.ShipmentLog{},
 	)
 
 	app := fiber.New()

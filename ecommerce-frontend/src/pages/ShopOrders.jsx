@@ -3,11 +3,12 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
-import { FaArrowLeft, FaEye } from 'react-icons/fa';
+import { FaArrowLeft, FaEye, FaTruck, FaCheckCircle } from 'react-icons/fa';
 
 function ShopOrders() {
   const { theme } = useTheme();
   const [orders, setOrders] = useState([]);
+  const [shipments, setShipments] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -17,7 +18,10 @@ function ShopOrders() {
 
   useEffect(() => {
     if (role !== 'seller') navigate('/login');
-    else fetchOrders();
+    else {
+      fetchOrders();
+      fetchShipments();
+    }
   }, [role, navigate]);
 
   const fetchOrders = async () => {
@@ -33,6 +37,21 @@ function ShopOrders() {
     }
   };
 
+  const fetchShipments = async () => {
+    try {
+      const response = await axios.get('http://localhost:3000/api/seller/shipments', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const shipmentMap = {};
+      (response.data.data || []).forEach(s => {
+        shipmentMap[s.order_id] = s;
+      });
+      setShipments(shipmentMap);
+    } catch (error) {
+      console.error("Gagal mengambil data pengiriman");
+    }
+  };
+
   const updateStatus = async (orderId, newStatus) => {
     if (window.confirm(`Ubah status pesanan menjadi "${newStatus}"?`)) {
       try {
@@ -41,8 +60,25 @@ function ShopOrders() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         fetchOrders();
+        fetchShipments();
       } catch (error) {
         alert("Gagal memperbarui status");
+      }
+    }
+  };
+
+  const confirmReceived = async (orderId) => {
+    if (window.confirm("Konfirmasi pesanan ini telah diterima pembeli?")) {
+      try {
+        await axios.put(`http://localhost:3000/api/seller/shipments/confirm/${orderId}`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        alert("✅ Pesanan dikonfirmasi selesai!");
+        fetchOrders();
+        fetchShipments();
+      } catch (error) {
+        alert(error.response?.data?.message || "Gagal konfirmasi pesanan");
       }
     }
   };
@@ -294,10 +330,12 @@ function ShopOrders() {
                   borderTop: `1px solid ${theme.border}`,
                   backgroundColor: theme.bg,
                   padding: 15,
-                  borderRadius: 8
+                  borderRadius: 8,
+                  flexWrap: 'wrap',
+                  gap: 12
                 }}>
                   <span style={{ fontWeight: 600, color: theme.textSecondary }}>Tindakan:</span>
-                  <div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {order.status === 'Menunggu Pembayaran' && (
                       <span style={{ color: '#D97706', fontWeight: 600 }}>
                         ⏳ Menunggu pembeli transfer...
@@ -336,12 +374,58 @@ function ShopOrders() {
                           fontWeight: 600
                         }}
                       >
-                        Kirim Barang (Input Resi)
+                        📦 Kirim Barang
                       </motion.button>
                     )}
-                    {order.status === 'Dikirim' && (
+                    {order.status === 'Dikirim' && shipments[order.id] && (
+                      <>
+                        <Link
+                          to={`/tracking`}
+                          style={{
+                            padding: '10px 20px',
+                            backgroundColor: '#3B82F6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            textDecoration: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          <FaTruck /> Tracking
+                        </Link>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => confirmReceived(order.id)}
+                          style={{
+                            padding: '10px 20px',
+                            backgroundColor: '#F59E0B',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}
+                        >
+                          <FaCheckCircle /> Konfirmasi Terima
+                        </motion.button>
+                      </>
+                    )}
+                    {order.status === 'Dikirim' && !shipments[order.id] && (
                       <span style={{ color: '#10B981', fontWeight: 600 }}>
-                        Barang dalam perjalanan 🚚
+                        Barang sedang diproses untuk pengiriman 🚚
+                      </span>
+                    )}
+                    {order.status === 'Selesai' && (
+                      <span style={{ color: '#059669', fontWeight: 600 }}>
+                        ✅ Pesanan Selesai
                       </span>
                     )}
                   </div>

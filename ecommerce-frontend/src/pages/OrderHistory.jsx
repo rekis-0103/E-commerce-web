@@ -5,12 +5,13 @@ import { useTheme, DarkModeToggle } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
 
 // IMPORT IKON PROFESIONAL
-import { FaArrowLeft, FaBoxOpen, FaCreditCard, FaCloudUploadAlt, FaCheckCircle, FaTruck, FaClock } from 'react-icons/fa';
+import { FaArrowLeft, FaBoxOpen, FaCreditCard, FaCloudUploadAlt, FaCheckCircle, FaTruck, FaClock, FaShippingFast } from 'react-icons/fa';
 import { MdOutlinePayment } from 'react-icons/md';
 
 function OrderHistory() {
   const { theme } = useTheme();
   const [orders, setOrders] = useState([]);
+  const [shipments, setShipments] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState({});
   const [paymentMethods, setPaymentMethods] = useState({});
@@ -20,7 +21,10 @@ function OrderHistory() {
 
   useEffect(() => {
     if (!token) navigate('/login');
-    else fetchOrders();
+    else {
+      fetchOrders();
+      fetchShipments();
+    }
   }, [navigate, token]);
 
   const fetchOrders = async () => {
@@ -33,6 +37,21 @@ function OrderHistory() {
     } catch (error) {
       console.error("Gagal mengambil histori pesanan");
       setIsLoading(false);
+    }
+  };
+
+  const fetchShipments = async () => {
+    try {
+      const response = await axios.get('http://localhost:3000/api/buyer/shipments', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const shipmentMap = {};
+      (response.data.data || []).forEach(s => {
+        shipmentMap[s.order_id] = s;
+      });
+      setShipments(shipmentMap);
+    } catch (error) {
+      console.error("Gagal mengambil data pengiriman");
     }
   };
 
@@ -243,6 +262,35 @@ function OrderHistory() {
                       <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#E11D48' }}>
                         Rp {order.total_amount.toLocaleString('id-ID')}
                       </h2>
+
+                      {/* Info Resi & Tracking */}
+                      {order.status === 'Dikirim' && shipments[order.id] && (
+                        <div style={{ marginTop: 12 }}>
+                          <p style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 4 }}>
+                            No. Resi
+                          </p>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: theme.primary, marginBottom: 8 }}>
+                            {shipments[order.id].tracking_number}
+                          </p>
+                          <Link
+                            to="/tracking"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '8px 16px',
+                              backgroundColor: '#3B82F6',
+                              color: 'white',
+                              borderRadius: 8,
+                              textDecoration: 'none',
+                              fontWeight: 600,
+                              fontSize: 13
+                            }}
+                          >
+                            <FaShippingFast /> Lacak Paket
+                          </Link>
+                        </div>
+                      )}
 
                       {order.status === 'Menunggu Pembayaran' && (
                         <div style={{

@@ -78,9 +78,12 @@ function Login() {
     try {
       const res = await axios.post('http://localhost:3000/api/login', { email, password });
       localStorage.setItem('token', res.data.token);
-      localStorage.setItem('role', res.data.role);
+      const role = res.data.role;
+      localStorage.setItem('role', role);
       localStorage.removeItem('loginMethod');
-      res.data.role === 'seller' ? navigate('/dashboard') : navigate('/home');
+      if (role === 'seller') navigate('/dashboard');
+      else if (role === 'courier' || role === 'warehouse_staff') navigate('/shipment-management');
+      else navigate('/home');
     } catch {
       alert("Email atau password salah!");
     }
@@ -95,8 +98,8 @@ function Login() {
       await axios.post('http://localhost:3000/api/auth/request-otp', { email });
       setOtpSent(true);
       alert("OTP dikirim!");
-    } catch {
-      alert("Gagal kirim OTP");
+    } catch (error) {
+      alert(error.response?.data?.message || "Gagal kirim OTP");
     }
     setIsLoading(false);
   };

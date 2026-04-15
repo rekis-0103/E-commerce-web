@@ -4,7 +4,7 @@ import axios from 'axios';
 import ImageCropModal from '../components/ImageCropModal';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
-import { FaEdit, FaTimes, FaSignOutAlt, FaBox, FaPlus, FaCheck, FaArrowLeft } from 'react-icons/fa';
+import { FaEdit, FaTimes, FaSignOutAlt, FaBox, FaPlus, FaCheck, FaArrowLeft, FaTruck } from 'react-icons/fa';
 
 function SellerDashboard() {
   const { theme } = useTheme();
@@ -262,6 +262,26 @@ function SellerDashboard() {
             }}
           >
             <FaBox /> 📦 Cek Pesanan Masuk
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/tracking')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#3B82F6',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}
+          >
+            <FaTruck /> Tracking
           </motion.button>
 
           <motion.button

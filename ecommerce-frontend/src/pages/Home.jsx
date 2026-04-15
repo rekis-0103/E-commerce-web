@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
-import { FaShoppingCart, FaUser, FaSignOutAlt, FaBox, FaHome } from 'react-icons/fa';
+import { FaShoppingCart, FaUser, FaSignOutAlt, FaBox, FaHome, FaTruck } from 'react-icons/fa';
 
 function Home() {
   const { theme, darkMode } = useTheme();
@@ -15,6 +15,12 @@ function Home() {
   const token = localStorage.getItem('token');
 
   useEffect(() => {
+    // Redirect courier dan warehouse staff ke shipment management
+    if (role === 'courier' || role === 'warehouse_staff') {
+      navigate('/shipment-management');
+      return;
+    }
+
     const fetchAllProducts = async () => {
       try {
         const response = await axios.get('http://localhost:3000/api/products');
@@ -154,6 +160,28 @@ function Home() {
                 }}
               >
                 📦 Pesanan
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/tracking')}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: theme.cardBg,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 25,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: theme.text,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <FaTruck /> Tracking
               </motion.button>
 
               <motion.button
