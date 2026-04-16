@@ -31,6 +31,10 @@ func main() {
 		&models.OTPRegistry{},
 		&models.Shipment{},
 		&models.ShipmentLog{},
+		&models.Warehouse{},
+		&models.WarehouseMovement{},
+		&models.DeliveryHub{},
+		&models.HubAssignment{},
 	)
 
 	app := fiber.New()

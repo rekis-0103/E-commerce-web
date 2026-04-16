@@ -81,8 +81,10 @@ function Login() {
       const role = res.data.role;
       localStorage.setItem('role', role);
       localStorage.removeItem('loginMethod');
-      if (role === 'seller') navigate('/dashboard');
-      else if (role === 'courier' || role === 'warehouse_staff') navigate('/shipment-management');
+      if (role === 'admin') navigate('/admin/dashboard');
+      else if (role === 'seller') navigate('/dashboard');
+      else if (role === 'courier') navigate('/delivery-hub');
+      else if (role === 'warehouse_staff') navigate('/warehouse-management');
       else navigate('/home');
     } catch {
       alert("Email atau password salah!");

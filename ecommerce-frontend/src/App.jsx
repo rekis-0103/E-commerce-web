@@ -11,6 +11,14 @@ import ShopOrders from './pages/ShopOrders';
 import Profile from './pages/Profile';
 import TrackingPage from './pages/TrackingPage';
 import ShipmentManagement from './pages/ShipmentManagement';
+import WarehouseManagement from './pages/WarehouseManagement';
+import DeliveryHubManagement from './pages/DeliveryHubManagement';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminShopApproval from './pages/AdminShopApproval';
+import AdminShopManagement from './pages/AdminShopManagement';
+import AdminWarehouseManagement from './pages/AdminWarehouseManagement';
+import AdminCourierManagement from './pages/AdminCourierManagement';
+import SellerRegistration from './pages/SellerRegistration';
 
 function App() {
   return (
@@ -29,6 +37,18 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/tracking" element={<TrackingPage />} />
           <Route path="/shipment-management" element={<ShipmentManagement />} />
+          <Route path="/warehouse-management" element={<WarehouseManagement />} />
+          <Route path="/delivery-hub" element={<DeliveryHubManagement />} />
+          
+          {/* Seller Registration for Buyers */}
+          <Route path="/seller-registration" element={<SellerRegistration />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/shop-approval" element={<AdminShopApproval />} />
+          <Route path="/admin/shop-management" element={<AdminShopManagement />} />
+          <Route path="/admin/warehouse-management" element={<AdminWarehouseManagement />} />
+          <Route path="/admin/courier-management" element={<AdminCourierManagement />} />
         </Routes>
       </Router>
     </ThemeProvider>

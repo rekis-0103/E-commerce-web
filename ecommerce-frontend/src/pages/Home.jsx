@@ -15,9 +15,21 @@ function Home() {
   const token = localStorage.getItem('token');
 
   useEffect(() => {
-    // Redirect courier dan warehouse staff ke shipment management
-    if (role === 'courier' || role === 'warehouse_staff') {
-      navigate('/shipment-management');
+    // Redirect admin ke dashboard admin
+    if (role === 'admin') {
+      navigate('/admin/dashboard');
+      return;
+    }
+    
+    // Redirect courier ke delivery hub management
+    if (role === 'courier') {
+      navigate('/delivery-hub');
+      return;
+    }
+    
+    // Redirect warehouse staff ke warehouse management
+    if (role === 'warehouse_staff') {
+      navigate('/warehouse-management');
       return;
     }
 
@@ -115,6 +127,30 @@ function Home() {
                   }}
                 >
                   <FaBox /> Dashboard
+                </motion.button>
+              )}
+
+              {role === 'buyer' && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/seller-registration')}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#10B981',
+                    border: 'none',
+                    borderRadius: 25,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <FaBox /> Jadi Penjual
                 </motion.button>
               )}
 

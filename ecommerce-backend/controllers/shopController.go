@@ -3,6 +3,7 @@ package controllers
 import (
 	"ecommerce-backend/config"
 	"ecommerce-backend/models"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -23,7 +24,28 @@ func CreateShop(c *fiber.Ctx) error {
 	var existingShop models.Shop
 	config.DB.Where("user_id = ?", userID).First(&existingShop)
 	if existingShop.ID != 0 {
-		return c.Status(400).JSON(fiber.Map{"message": "Anda sudah memiliki toko atau sedang dalam masa pengajuan"})
+		// Jika toko approved, tidak bisa daftar lagi
+		if existingShop.Status == "approved" {
+			return c.Status(400).JSON(fiber.Map{"message": "Anda sudah memiliki toko yang disetujui"})
+		}
+		// Jika pending, tidak bisa daftar lagi
+		if existingShop.Status == "pending" {
+			return c.Status(400).JSON(fiber.Map{"message": "Pengajuan toko Anda masih dalam proses review oleh Admin"})
+		}
+		// Jika rejected, cek cooldown 1 bulan
+		if existingShop.Status == "rejected" && existingShop.LastRejectionDate != nil {
+			oneMonthLater := existingShop.LastRejectionDate.AddDate(0, 1, 0)
+			if time.Now().Before(oneMonthLater) {
+				daysLeft := int(oneMonthLater.Sub(time.Now()).Hours() / 24)
+				return c.Status(400).JSON(fiber.Map{
+					"message": "Pengajuan toko Anda ditolak. Silakan coba lagi setelah 1 bulan.",
+					"can_reapply_after_days": daysLeft,
+					"can_reapply_at": oneMonthLater.Format("02 Jan 2006"),
+				})
+			}
+			// Sudah lewat 1 bulan, bisa hapus shop lama dan buat baru
+			config.DB.Delete(&existingShop)
+		}
 	}
 
 	// 4. Buat toko baru dengan status "pending"
