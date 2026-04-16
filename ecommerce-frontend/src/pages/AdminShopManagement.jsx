@@ -54,7 +54,7 @@ function AdminShopManagement() {
     if (!selectedShop || !newBadge) return;
 
     try {
-      await axios.put(`http://localhost:3000/api/admin/shops/badge/${selectedShop.ID}`, {
+      await axios.put(`http://localhost:3000/api/admin/shops/badge/${selectedShop.id}`, {
         badge: newBadge
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -72,7 +72,7 @@ function AdminShopManagement() {
     if (!selectedShop) return;
 
     try {
-      await axios.delete(`http://localhost:3000/api/admin/shops/${selectedShop.ID}`, {
+      await axios.delete(`http://localhost:3000/api/admin/shops/${selectedShop.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -218,7 +218,7 @@ function AdminShopManagement() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {shops.map((shop, idx) => (
             <motion.div
-              key={shop.ID}
+              key={shop.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
@@ -239,7 +239,7 @@ function AdminShopManagement() {
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <p style={{ margin: 0, fontSize: 14, color: theme.textSecondary }}>
-                      <strong>Pemilik:</strong> {shop.Owner?.name || 'N/A'} ({shop.Owner?.email || `ID: ${shop.user_id}`})
+                      <strong>Pemilik:</strong> {shop.owner?.name || 'N/A'} ({shop.owner?.email || `ID: ${shop.user_id}`})
                     </p>
                     <p style={{ margin: '8px 0 0 0', fontSize: 14, color: theme.textSecondary }}>
                       <strong>Deskripsi:</strong> {shop.description}
