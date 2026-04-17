@@ -4,16 +4,19 @@ import "time"
 
 // Warehouse mewakili gudang fisik yang dikelola oleh seorang warehouse staff
 type Warehouse struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	Name        string    `gorm:"size:100;not null" json:"name"`               // Nama gudang (contoh: "Gudang Jakarta Utara")
-	Code        string    `gorm:"uniqueIndex;size:20;not null" json:"code"`    // Kode unik gudang (contoh: "JKT-001")
-	Address     string    `json:"address"`                                      // Alamat lengkap gudang
-	OwnerID     uint      `gorm:"not null" json:"owner_id"`                     // User ID dari warehouse staff
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	Name          string    `gorm:"size:100;not null" json:"name"`               // Nama gudang
+	Code          string    `gorm:"uniqueIndex;size:20;not null" json:"code"`    // Kode unik gudang
+	Address       string    `json:"address"`                                      // Alamat lengkap
+	Province      string    `gorm:"size:100;not null" json:"province"`           // Provinsi di Indonesia
+	WarehouseType string    `gorm:"type:enum('sortir', 'pengiriman');not null;default:'pengiriman'" json:"warehouse_type"` // Tipe gudang
+	OwnerID       uint      `gorm:"not null" json:"owner_id"`                     // Manager/Owner
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 
 	// Relasi
 	Owner     User        `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
+	Staff     []User      `gorm:"foreignKey:WarehouseID" json:"staff,omitempty"`
 	Movements []WarehouseMovement `gorm:"foreignKey:WarehouseID" json:"movements,omitempty"`
 }
 

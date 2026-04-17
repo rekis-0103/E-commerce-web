@@ -305,18 +305,20 @@ func DeleteShop(c *fiber.Ctx) error {
 // CreateWarehouseByAdmin - Admin membuat gudang baru dan assign warehouse staff
 func CreateWarehouseByAdmin(c *fiber.Ctx) error {
 	var req struct {
-		Name      string `json:"name"`
-		Code      string `json:"code"`
-		Address   string `json:"address"`
-		StaffID   uint   `json:"staff_id"` // User ID warehouse staff (opsional)
+		Name          string `json:"name"`
+		Code          string `json:"code"`
+		Address       string `json:"address"`
+		Province      string `json:"province"`
+		WarehouseType string `json:"warehouse_type"`
+		StaffID       uint   `json:"staff_id"` // User ID warehouse staff (opsional)
 	}
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
 	}
 
-	if req.Name == "" || req.Code == "" {
-		return c.Status(400).JSON(fiber.Map{"message": "Nama dan kode gudang wajib diisi"})
+	if req.Name == "" || req.Code == "" || req.Province == "" || req.WarehouseType == "" {
+		return c.Status(400).JSON(fiber.Map{"message": "Nama, kode, provinsi, dan tipe gudang wajib diisi"})
 	}
 
 	// Cek apakah kode gudang sudah digunakan
@@ -348,7 +350,6 @@ func CreateWarehouseByAdmin(c *fiber.Ctx) error {
 		ownerID = staff.ID
 	} else {
 		// Jika tidak ada staff, buat user baru dengan role warehouse_staff
-		// Tapi ini butuh email dan nama, jadi kita return error minta staff_id
 		tx.Rollback()
 		return c.Status(400).JSON(fiber.Map{
 			"message": "Staff ID wajib diisi. Admin harus menambahkan warehouse staff terlebih dahulu.",
@@ -357,15 +358,23 @@ func CreateWarehouseByAdmin(c *fiber.Ctx) error {
 
 	// Buat warehouse
 	warehouse := models.Warehouse{
-		Name:    req.Name,
-		Code:    req.Code,
-		Address: req.Address,
-		OwnerID: ownerID,
+		Name:          req.Name,
+		Code:          req.Code,
+		Address:       req.Address,
+		Province:      req.Province,
+		WarehouseType: req.WarehouseType,
+		OwnerID:       ownerID,
 	}
 
 	if err := tx.Create(&warehouse).Error; err != nil {
 		tx.Rollback()
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat gudang"})
+	}
+
+	// Update warehouse_id pada user
+	if err := tx.Model(&models.User{}).Where("id = ?", ownerID).Update("warehouse_id", warehouse.ID).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menghubungkan staff ke gudang"})
 	}
 
 	tx.Commit()
@@ -379,13 +388,60 @@ func CreateWarehouseByAdmin(c *fiber.Ctx) error {
 // GetAllWarehousesWithStaff - Mendapatkan semua gudang beserta staff-nya
 func GetAllWarehousesWithStaff(c *fiber.Ctx) error {
 	var warehouses []models.Warehouse
-	if err := config.DB.Preload("Owner").Order("created_at desc").Find(&warehouses).Error; err != nil {
+	if err := config.DB.Preload("Owner").Preload("Staff").Order("created_at desc").Find(&warehouses).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data gudang"})
 	}
 
 	return c.JSON(fiber.Map{
 		"message": "Data gudang berhasil diambil",
 		"data":    warehouses,
+	})
+}
+
+// GetAllCouriersWithWarehouse - Mendapatkan semua kurir beserta data gudangnya
+func GetAllCouriersWithWarehouse(c *fiber.Ctx) error {
+	var couriers []models.User
+	if err := config.DB.Where("role = ?", "courier").Find(&couriers).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data kurir"})
+	}
+
+	type CourierResponse struct {
+		ID            uint   `json:"id"`
+		Name          string `json:"name"`
+		Email         string `json:"email"`
+		WarehouseID   uint   `json:"warehouse_id"`
+		WarehouseName string `json:"warehouse_name"`
+		WarehouseCode string `json:"warehouse_code"`
+	}
+
+	var response []CourierResponse
+	for _, courier := range couriers {
+		warehouseName := "Belum ditugaskan"
+		warehouseCode := ""
+		var warehouseID uint = 0
+
+		if courier.WarehouseID != nil && *courier.WarehouseID != 0 {
+			var w models.Warehouse
+			if err := config.DB.First(&w, *courier.WarehouseID).Error; err == nil {
+				warehouseName = w.Name
+				warehouseCode = w.Code
+				warehouseID = w.ID
+			}
+		}
+
+		response = append(response, CourierResponse{
+			ID:            courier.ID,
+			Name:          courier.Name,
+			Email:         courier.Email,
+			WarehouseID:   warehouseID,
+			WarehouseName: warehouseName,
+			WarehouseCode: warehouseCode,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Data kurir berhasil diambil",
+		"data":    response,
 	})
 }
 
@@ -463,76 +519,31 @@ func AddWarehouseStaff(c *fiber.Ctx) error {
 	})
 }
 
-// CreateDeliveryHubByAdmin - Admin membuat delivery hub baru
-func CreateDeliveryHubByAdmin(c *fiber.Ctx) error {
-	var req struct {
-		Name       string `json:"name"`
-		Code       string `json:"code"`
-		Address    string `json:"address"`
-		CourierID  uint   `json:"courier_id"` // Opsional
-	}
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
-	}
-
-	if req.Name == "" || req.Code == "" {
-		return c.Status(400).JSON(fiber.Map{"message": "Nama dan kode hub wajib diisi"})
-	}
-
-	// Cek apakah kode hub sudah digunakan
-	var codeExists models.DeliveryHub
-	if err := config.DB.Where("code = ?", req.Code).First(&codeExists).Error; err == nil {
-		return c.Status(400).JSON(fiber.Map{"message": "Kode hub sudah digunakan"})
-	}
-
-	tx := config.DB.Begin()
-
-	hub := models.DeliveryHub{
-		Name:    req.Name,
-		Code:    req.Code,
-		Address: req.Address,
-	}
-
-	// Jika courier_id diisi, validasi dan assign
-	if req.CourierID > 0 {
-		var courier models.User
-		if err := tx.Where("id = ? AND role = ?", req.CourierID, "courier").First(&courier).Error; err != nil {
-			tx.Rollback()
-			return c.Status(404).JSON(fiber.Map{"message": "User kurir tidak ditemukan"})
-		}
-
-		hub.AssignedCourierID = &req.CourierID
-	}
-
-	if err := tx.Create(&hub).Error; err != nil {
-		tx.Rollback()
-		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat delivery hub"})
-	}
-
-	tx.Commit()
-
-	return c.Status(201).JSON(fiber.Map{
-		"message": "Delivery hub berhasil dibuat",
-		"hub":     hub,
-	})
-}
-
-// AddCourierByAdmin - Menambahkan courier baru dan assign ke hub
+// AddCourierByAdmin - Menambahkan courier baru dan assign ke gudang pengiriman
 func AddCourierByAdmin(c *fiber.Ctx) error {
 	var req struct {
-		Name    string `json:"name"`
-		Email   string `json:"email"`
-		Password string `json:"password"`
-		HubID   uint   `json:"hub_id"`
+		Name        string `json:"name"`
+		Email       string `json:"email"`
+		Password    string `json:"password"`
+		WarehouseID uint   `json:"warehouse_id"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
 	}
 
-	if req.Name == "" || req.Email == "" || req.Password == "" {
-		return c.Status(400).JSON(fiber.Map{"message": "Nama, email, dan password wajib diisi"})
+	if req.Name == "" || req.Email == "" || req.Password == "" || req.WarehouseID == 0 {
+		return c.Status(400).JSON(fiber.Map{"message": "Semua field wajib diisi"})
+	}
+
+	// Validasi gudang harus bertipe 'pengiriman'
+	var warehouse models.Warehouse
+	if err := config.DB.First(&warehouse, req.WarehouseID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
+	}
+
+	if warehouse.WarehouseType != "pengiriman" {
+		return c.Status(400).JSON(fiber.Map{"message": "Kurir hanya dapat ditugaskan ke gudang tipe 'pengiriman'"})
 	}
 
 	tx := config.DB.Begin()
@@ -553,10 +564,11 @@ func AddCourierByAdmin(c *fiber.Ctx) error {
 
 	// Buat user baru dengan role courier
 	courier := models.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Role:     "courier",
+		Name:        req.Name,
+		Email:       req.Email,
+		Password:    string(hashedPassword),
+		Role:        "courier",
+		WarehouseID: &req.WarehouseID,
 	}
 
 	if err := tx.Create(&courier).Error; err != nil {
@@ -564,25 +576,10 @@ func AddCourierByAdmin(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat user kurir"})
 	}
 
-	// Jika hub_id diisi, assign courier ke hub
-	if req.HubID > 0 {
-		var hub models.DeliveryHub
-		if err := tx.First(&hub, req.HubID).Error; err != nil {
-			tx.Rollback()
-			return c.Status(404).JSON(fiber.Map{"message": "Delivery hub tidak ditemukan"})
-		}
-
-		hub.AssignedCourierID = &courier.ID
-		if err := tx.Save(&hub).Error; err != nil {
-			tx.Rollback()
-			return c.Status(500).JSON(fiber.Map{"message": "Gagal menugaskan kurir ke hub"})
-		}
-	}
-
 	tx.Commit()
 
 	return c.Status(201).JSON(fiber.Map{
-		"message": "Kurir berhasil ditambahkan",
+		"message": "Kurir berhasil ditambahkan ke gudang " + warehouse.Name,
 		"courier": fiber.Map{
 			"id":    courier.ID,
 			"name":  courier.Name,
@@ -592,37 +589,51 @@ func AddCourierByAdmin(c *fiber.Ctx) error {
 	})
 }
 
-// GetAllCouriersWithHub - Mendapatkan semua kurir beserta hub mereka
-func GetAllCouriersWithHub(c *fiber.Ctx) error {
+// GetAvailableCouriers - Mendapatkan daftar kurir yang belum ditugaskan ke gudang manapun
+func GetAvailableCouriers(c *fiber.Ctx) error {
 	var couriers []models.User
-	if err := config.DB.Where("role = ?", "courier").Order("created_at desc").Find(&couriers).Error; err != nil {
+	if err := config.DB.Where("role = ? AND (warehouse_id IS NULL OR warehouse_id = 0)", "courier").Find(&couriers).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data kurir"})
 	}
 
-	type CourierWithHub struct {
-		models.User
-		HubName string `json:"hub_name"`
-		HubCode string `json:"hub_code"`
+	return c.JSON(fiber.Map{
+		"message": "Data kurir tersedia berhasil diambil",
+		"data":    couriers,
+	})
+}
+
+// AssignCourierToWarehouse - Menugaskan kurir yang sudah ada ke gudang tertentu
+func AssignCourierToWarehouse(c *fiber.Ctx) error {
+	var req struct {
+		CourierID   uint `json:"courier_id"`
+		WarehouseID uint `json:"warehouse_id"`
 	}
 
-	var result []CourierWithHub
-	for _, courier := range couriers {
-		cwh := CourierWithHub{User: courier}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
+	}
 
-		var hub models.DeliveryHub
-		if err := config.DB.Where("assigned_courier_id = ?", courier.ID).First(&hub).Error; err == nil {
-			cwh.HubName = hub.Name
-			cwh.HubCode = hub.Code
-		} else {
-			cwh.HubName = "Belum ditugaskan"
-			cwh.HubCode = "-"
-		}
+	if req.CourierID == 0 || req.WarehouseID == 0 {
+		return c.Status(400).JSON(fiber.Map{"message": "Courier ID dan Warehouse ID wajib diisi"})
+	}
 
-		result = append(result, cwh)
+	// Validasi gudang harus bertipe 'pengiriman'
+	var warehouse models.Warehouse
+	if err := config.DB.First(&warehouse, req.WarehouseID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
+	}
+
+	if warehouse.WarehouseType != "pengiriman" {
+		return c.Status(400).JSON(fiber.Map{"message": "Hanya dapat menugaskan kurir ke gudang tipe 'pengiriman'"})
+	}
+
+	// Update WarehouseID pada kurir
+	if err := config.DB.Model(&models.User{}).Where("id = ? AND role = ?", req.CourierID, "courier").Update("warehouse_id", req.WarehouseID).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menugaskan kurir ke gudang"})
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "Data kurir berhasil diambil",
-		"data":    result,
+		"message": "Kurir berhasil ditugaskan ke gudang " + warehouse.Name,
 	})
 }
+

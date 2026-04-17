@@ -11,6 +11,7 @@ type User struct {
 	Phone       string    `json:"phone"`
 	Address     string    `json:"address"`
 	DateOfBirth string    `json:"date_of_birth"`
+	WarehouseID *uint     `json:"warehouse_id,omitempty"` // ID Gudang tempat staf bekerja
 	CreatedAt   time.Time `json:"created_at"`
 }
 

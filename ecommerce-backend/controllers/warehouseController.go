@@ -23,9 +23,11 @@ func RegisterWarehouse(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		Name    string `json:"name"`
-		Code    string `json:"code"`
-		Address string `json:"address"`
+		Name          string `json:"name"`
+		Code          string `json:"code"`
+		Address       string `json:"address"`
+		Province      string `json:"province"`
+		WarehouseType string `json:"warehouse_type"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -33,8 +35,8 @@ func RegisterWarehouse(c *fiber.Ctx) error {
 	}
 
 	// Validasi required fields
-	if req.Name == "" || req.Code == "" {
-		return c.Status(400).JSON(fiber.Map{"message": "Nama dan kode gudang wajib diisi"})
+	if req.Name == "" || req.Code == "" || req.Province == "" || req.WarehouseType == "" {
+		return c.Status(400).JSON(fiber.Map{"message": "Nama, kode, provinsi, dan tipe gudang wajib diisi"})
 	}
 
 	// Cek apakah kode gudang sudah digunakan
@@ -44,15 +46,20 @@ func RegisterWarehouse(c *fiber.Ctx) error {
 	}
 
 	warehouse := models.Warehouse{
-		Name:    req.Name,
-		Code:    req.Code,
-		Address: req.Address,
-		OwnerID: userID,
+		Name:          req.Name,
+		Code:          req.Code,
+		Address:       req.Address,
+		Province:      req.Province,
+		WarehouseType: req.WarehouseType,
+		OwnerID:       userID,
 	}
 
 	if err := config.DB.Create(&warehouse).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal mendaftarkan gudang"})
 	}
+
+	// Update WarehouseID pada User pembuat
+	config.DB.Model(&models.User{}).Where("id = ?", userID).Update("warehouse_id", warehouse.ID)
 
 	return c.Status(201).JSON(fiber.Map{
 		"message": "Gudang berhasil didaftarkan",
@@ -65,8 +72,23 @@ func GetMyWarehouse(c *fiber.Ctx) error {
 	userID := uint(c.Locals("user_id").(float64))
 
 	var warehouse models.Warehouse
-	if err := config.DB.Where("owner_id = ?", userID).Preload("Movements").First(&warehouse).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan. Silakan daftarkan gudang terlebih dahulu"})
+	// Cari gudang dimana user ini adalah Owner atau Staff
+	var user models.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "User tidak ditemukan"})
+	}
+
+	if user.WarehouseID == nil {
+		// Cek apakah dia owner tapi warehouse_id belum diupdate (migrasi lama)
+		if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
+			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan. Silakan daftarkan gudang terlebih dahulu"})
+		}
+		// Update warehouse_id yang kosong
+		config.DB.Model(&user).Update("warehouse_id", warehouse.ID)
+	}
+
+	if err := config.DB.Where("id = ?", user.WarehouseID).Preload("Staff").Preload("Movements").First(&warehouse).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
 	}
 
 	return c.JSON(fiber.Map{
@@ -221,5 +243,46 @@ func GetWarehouseByID(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Detail gudang berhasil diambil",
 		"data":    warehouse,
+	})
+}
+
+// GetAvailableStaff - Mendapatkan daftar semua warehouse staff yang belum ditugaskan ke gudang manapun
+func GetAvailableStaff(c *fiber.Ctx) error {
+	var staff []models.User
+	if err := config.DB.Where("role = ? AND (warehouse_id IS NULL OR warehouse_id = 0)", "warehouse_staff").Find(&staff).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data staf"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Data staf yang tersedia berhasil diambil",
+		"data":    staff,
+	})
+}
+
+// AddStaffToWarehouse - Menugaskan staf ke gudang milik user yang login (Owner)
+func AddStaffToWarehouse(c *fiber.Ctx) error {
+	ownerID := uint(c.Locals("user_id").(float64))
+
+	var req struct {
+		StaffID uint `json:"staff_id"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
+	}
+
+	// Pastikan user yang login adalah owner sebuah gudang
+	var warehouse models.Warehouse
+	if err := config.DB.Where("owner_id = ?", ownerID).First(&warehouse).Error; err != nil {
+		return c.Status(403).JSON(fiber.Map{"message": "Hanya pemilik gudang yang dapat menambah staf"})
+	}
+
+	// Update WarehouseID pada staff yang dipilih
+	if err := config.DB.Model(&models.User{}).Where("id = ? AND role = ?", req.StaffID, "warehouse_staff").Update("warehouse_id", warehouse.ID).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menambahkan staf ke gudang"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Staf berhasil ditambahkan ke gudang",
 	})
 }

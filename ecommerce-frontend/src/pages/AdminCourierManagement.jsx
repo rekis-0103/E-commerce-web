@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
-import { motion } from 'framer-motion';
-import { FaSignOutAlt, FaTruck, FaPlus, FaArrowLeft, FaWarehouse } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaSignOutAlt, FaTruck, FaPlus, FaArrowLeft, FaWarehouse, FaUserTie, FaUserPlus, FaMapMarkerAlt, FaIdCard } from 'react-icons/fa';
 
 function AdminCourierManagement() {
   const { theme } = useTheme();
@@ -11,19 +11,20 @@ function AdminCourierManagement() {
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
 
-  const [couriers, setCouriers] = useState([]);
-  const [hubs, setHubs] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [availableCouriers, setAvailableCouriers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Modals
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showHubModal, setShowHubModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   
   // Form states
+  const [selectedWarehouse, setSelectedWarehouse] = useState(null);
   const [courierName, setCourierName] = useState('');
   const [courierEmail, setCourierEmail] = useState('');
   const [courierPassword, setCourierPassword] = useState('');
-  const [hubName, setHubName] = useState('');
-  const [hubCode, setHubCode] = useState('');
-  const [hubAddress, setHubAddress] = useState('');
+  const [selectedCourierId, setSelectedCourierId] = useState('');
 
   useEffect(() => {
     if (role !== 'admin') {
@@ -34,13 +35,21 @@ function AdminCourierManagement() {
   }, [role, navigate]);
 
   const fetchData = async () => {
+    setIsLoading(true);
     try {
-      const [couriersRes, hubsRes] = await Promise.all([
-        axios.get('http://localhost:3000/api/admin/courier/all', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('http://localhost:3000/api/delivery-hub/all', { headers: { Authorization: `Bearer ${token}` } })
+      const [whRes, courierRes] = await Promise.all([
+        axios.get('http://localhost:3000/api/admin/warehouse/all', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get('http://localhost:3000/api/admin/courier/available', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
       ]);
-      setCouriers(couriersRes.data.data || []);
-      setHubs(hubsRes.data.data || []);
+      
+      // Filter hanya gudang bertipe pengiriman
+      const shippingOnly = (whRes.data.data || []).filter(w => w.warehouse_type === 'pengiriman');
+      setWarehouses(shippingOnly);
+      setAvailableCouriers(courierRes.data.data || []);
       setIsLoading(false);
     } catch (error) {
       console.error("Gagal mengambil data", error);
@@ -48,9 +57,9 @@ function AdminCourierManagement() {
     }
   };
 
-  const handleAddCourier = async (e) => {
+  const handleAddNewCourier = async (e) => {
     e.preventDefault();
-    if (!courierName || !courierEmail || !courierPassword) {
+    if (!courierName || !courierEmail || !courierPassword || !selectedWarehouse) {
       alert("Semua field wajib diisi!");
       return;
     }
@@ -59,47 +68,51 @@ function AdminCourierManagement() {
       await axios.post('http://localhost:3000/api/admin/courier/add', {
         name: courierName,
         email: courierEmail,
-        password: courierPassword
+        password: courierPassword,
+        warehouse_id: selectedWarehouse.id
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      alert("✅ Kurir berhasil ditambahkan!");
+      alert("✅ Kurir baru berhasil ditambahkan!");
       setShowAddModal(false);
-      setCourierName('');
-      setCourierEmail('');
-      setCourierPassword('');
+      resetForm();
       fetchData();
     } catch (error) {
       alert(error.response?.data?.message || "Gagal menambahkan kurir");
     }
   };
 
-  const handleCreateHub = async (e) => {
+  const handleAssignCourier = async (e) => {
     e.preventDefault();
-    if (!hubName || !hubCode) {
-      alert("Nama dan kode hub wajib diisi!");
+    if (!selectedCourierId || !selectedWarehouse) {
+      alert("Pilih kurir terlebih dahulu!");
       return;
     }
 
     try {
-      await axios.post('http://localhost:3000/api/admin/delivery-hub/create', {
-        name: hubName,
-        code: hubCode,
-        address: hubAddress
+      await axios.post('http://localhost:3000/api/admin/courier/assign-warehouse', {
+        courier_id: parseInt(selectedCourierId),
+        warehouse_id: selectedWarehouse.id
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      alert("✅ Delivery hub berhasil dibuat!");
-      setShowHubModal(false);
-      setHubName('');
-      setHubCode('');
-      setHubAddress('');
+      alert("✅ Kurir berhasil ditugaskan ke gudang!");
+      setShowAssignModal(false);
+      resetForm();
       fetchData();
     } catch (error) {
-      alert(error.response?.data?.message || "Gagal membuat hub");
+      alert(error.response?.data?.message || "Gagal menugaskan kurir");
     }
+  };
+
+  const resetForm = () => {
+    setCourierName('');
+    setCourierEmail('');
+    setCourierPassword('');
+    setSelectedCourierId('');
+    setSelectedWarehouse(null);
   };
 
   const handleLogout = () => {
@@ -110,7 +123,7 @@ function AdminCourierManagement() {
   if (isLoading) {
     return (
       <div style={{ fontFamily: "'Inter', sans-serif", background: theme.bg, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <h2 style={{ color: theme.textSecondary }}>Memuat Data Kurir...</h2>
+        <h2 style={{ color: theme.textSecondary }}>Memuat Data Logistik...</h2>
       </div>
     );
   }
@@ -126,7 +139,7 @@ function AdminCourierManagement() {
             </motion.button>
           </Link>
           <motion.h2 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} style={{ fontSize: 32, fontWeight: 800, margin: 0, color: theme.text }}>
-            🚚 Manajemen Kurir & Hub
+            🚚 Manajemen Kurir & Gudang
           </motion.h2>
         </div>
         <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
@@ -137,119 +150,144 @@ function AdminCourierManagement() {
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
-        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowAddModal(true)} style={{ padding: '12px 24px', backgroundColor: '#8B5CF6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FaPlus /> Tambah Kurir
-        </motion.button>
-        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowHubModal(true)} style={{ padding: '12px 24px', backgroundColor: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FaWarehouse /> Buat Delivery Hub
-        </motion.button>
+      <div style={{ marginBottom: 32 }}>
+        <p style={{ color: theme.textSecondary, fontSize: 18 }}>Kelola penugasan kurir pada setiap Gudang Pengiriman (Shipping Warehouse).</p>
       </div>
 
-      {/* Couriers List */}
-      <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, color: theme.text }}>Daftar Kurir</h3>
-      {couriers.length === 0 ? (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', padding: 60, backgroundColor: theme.cardBg, borderRadius: 16, boxShadow: theme.shadow, border: `1px solid ${theme.border}` }}>
-          <FaTruck style={{ fontSize: 60, color: theme.textSecondary, marginBottom: 20 }} />
-          <h3 style={{ color: theme.textSecondary }}>Belum ada kurir</h3>
-        </motion.div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {couriers.map((courier, idx) => (
-            <motion.div key={courier.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} style={{ backgroundColor: theme.cardBg, borderRadius: 12, padding: 20, boxShadow: theme.shadow, border: `1px solid ${theme.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+      {/* Warehouse Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(450px, 1fr))', gap: 24 }}>
+        {warehouses.length === 0 ? (
+          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 60, backgroundColor: theme.cardBg, borderRadius: 16, border: `1px dashed ${theme.border}` }}>
+            <FaWarehouse size={48} color={theme.textSecondary} style={{ marginBottom: 16 }} />
+            <h3 style={{ color: theme.textSecondary }}>Belum ada gudang tipe pengiriman terdaftar.</h3>
+          </div>
+        ) : (
+          warehouses.map((warehouse) => (
+            <motion.div 
+              key={warehouse.id} 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              style={{ backgroundColor: theme.cardBg, borderRadius: 20, padding: 24, boxShadow: theme.shadow, border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                 <div>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 700, color: theme.text }}>{courier.name}</h4>
-                  <p style={{ margin: 0, fontSize: 14, color: theme.textSecondary }}>Email: {courier.email}</p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: 14, color: theme.textSecondary }}>
-                    <strong>Hub:</strong> {courier.hub_name || 'Belum ditugaskan'}
-                  </p>
+                  <h3 style={{ margin: '0 0 4px 0', color: theme.text, fontSize: 22 }}>{warehouse.name}</h3>
+                  <span style={{ fontSize: 13, backgroundColor: '#3B82F6', color: 'white', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>{warehouse.code}</span>
                 </div>
-                <span style={{ padding: '8px 16px', borderRadius: 20, backgroundColor: courier.hub_name ? '#10B981' : '#F59E0B', color: 'white', fontWeight: 700, fontSize: 12 }}>
-                  {courier.hub_name ? 'ASSIGNED' : 'PENDING'}
-                </span>
+                <FaWarehouse color="#3B82F6" size={24} />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: theme.textSecondary, fontSize: 14, marginBottom: 8 }}>
+                <FaMapMarkerAlt /> {warehouse.address}, {warehouse.province}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: theme.textSecondary, fontSize: 14, marginBottom: 20 }}>
+                <FaUserTie /> Manager: {warehouse.owner?.name || 'Tidak ada'}
+              </div>
+
+              <div style={{ flex: 1, backgroundColor: theme.bg, borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                <h4 style={{ margin: '0 0 12px 0', color: theme.text, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FaTruck size={14} /> Daftar Kurir ({warehouse.staff?.filter(s => s.role === 'courier').length || 0})
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {warehouse.staff?.filter(s => s.role === 'courier').length > 0 ? (
+                    warehouse.staff.filter(s => s.role === 'courier').map(courier => (
+                      <div key={courier.ID} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.cardBg, padding: '10px 14px', borderRadius: 8, border: `1px solid ${theme.border}` }}>
+                        <div>
+                          <div style={{ fontWeight: 600, color: theme.text, fontSize: 14 }}>{courier.name}</div>
+                          <div style={{ fontSize: 12, color: theme.textSecondary }}>{courier.email}</div>
+                        </div>
+                        <FaTruck size={12} color="#10B981" />
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: 13, color: theme.textSecondary, fontStyle: 'italic', margin: 0 }}>Belum ada kurir ditugaskan.</p>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button 
+                  onClick={() => { setSelectedWarehouse(warehouse); setShowAssignModal(true); }}
+                  style={{ flex: 1, padding: '10px', backgroundColor: 'transparent', color: '#3B82F6', border: '1px solid #3B82F6', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  <FaUserPlus /> Assign Kurir
+                </button>
+                <button 
+                  onClick={() => { setSelectedWarehouse(warehouse); setShowAddModal(true); }}
+                  style={{ flex: 1, padding: '10px', backgroundColor: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  <FaPlus /> Kurir Baru
+                </button>
               </div>
             </motion.div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
-      {/* Hubs List */}
-      {hubs.length > 0 && (
-        <>
-          <h3 style={{ fontSize: 22, fontWeight: 700, marginTop: 40, marginBottom: 20, color: theme.text }}>Delivery Hub</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {hubs.map((hub, idx) => (
-              <motion.div key={hub.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }} style={{ backgroundColor: theme.cardBg, borderRadius: 12, padding: 20, boxShadow: theme.shadow, border: `1px solid ${theme.border}` }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 700, color: theme.text }}>
-                  <FaWarehouse style={{ marginRight: 8, color: '#3B82F6' }} />
-                  {hub.name}
-                </h4>
-                <p style={{ margin: 0, fontSize: 14, color: theme.textSecondary }}><strong>Kode:</strong> {hub.code}</p>
-                {hub.address && <p style={{ margin: '4px 0 0 0', fontSize: 14, color: theme.textSecondary }}><strong>Alamat:</strong> {hub.address}</p>}
-                <p style={{ margin: '4px 0 0 0', fontSize: 14, color: theme.textSecondary }}>
-                  <strong>Kurir:</strong> {hub.assigned_courier?.name || 'Belum ditugaskan'}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Add Courier Modal */}
-      {showAddModal && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowAddModal(false)}>
-          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} style={{ position: 'relative', backgroundColor: theme.cardBg, padding: 32, borderRadius: 20, maxWidth: 500, width: '90%', boxShadow: theme.shadow }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 24px 0', fontSize: 24, fontWeight: 700, color: theme.text }}>Tambah Kurir Baru</h3>
-            <form onSubmit={handleAddCourier}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Nama Lengkap *</label>
-                <input type="text" value={courierName} onChange={(e) => setCourierName(e.target.value)} placeholder="Nama kurir" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Email *</label>
-                <input type="email" value={courierEmail} onChange={(e) => setCourierEmail(e.target.value)} placeholder="email@example.com" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Password *</label>
-                <input type="password" value={courierPassword} onChange={(e) => setCourierPassword(e.target.value)} placeholder="Password" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <motion.button type="submit" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: '#8B5CF6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Simpan</motion.button>
-                <motion.button type="button" onClick={() => setShowAddModal(false)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: theme.textSecondary, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Batal</motion.button>
-              </div>
-            </form>
+      {/* Assign Courier Modal */}
+      <AnimatePresence>
+        {showAssignModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowAssignModal(false)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} style={{ position: 'relative', backgroundColor: theme.cardBg, padding: 32, borderRadius: 20, maxWidth: 500, width: '90%', boxShadow: theme.shadow }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: 24, fontWeight: 700, color: theme.text }}>Tugaskan Kurir</h3>
+              <p style={{ color: theme.textSecondary, marginBottom: 24 }}>Pilih kurir yang sudah terdaftar untuk ditugaskan ke <strong>{selectedWarehouse?.name}</strong>.</p>
+              
+              <form onSubmit={handleAssignCourier}>
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Pilih Kurir Tersedia *</label>
+                  <select value={selectedCourierId} onChange={(e) => setSelectedCourierId(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required>
+                    <option value="">-- Pilih Kurir --</option>
+                    {availableCouriers.map(courier => (
+                      <option key={courier.ID} value={courier.ID}>{courier.name} ({courier.email})</option>
+                    ))}
+                  </select>
+                  {availableCouriers.length === 0 && (
+                    <p style={{ fontSize: 12, color: '#EF4444', marginTop: 8 }}>⚠️ Tidak ada kurir yang tersedia. Silakan buat kurir baru.</p>
+                  )}
+                </div>
+                
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <motion.button type="submit" disabled={availableCouriers.length === 0} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: availableCouriers.length === 0 ? theme.border : '#3B82F6', color: 'white', border: 'none', borderRadius: 8, cursor: availableCouriers.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600 }}>Tugaskan</motion.button>
+                  <motion.button type="button" onClick={() => setShowAssignModal(false)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: theme.textSecondary, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Batal</motion.button>
+                </div>
+              </form>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
+        )}
+      </AnimatePresence>
 
-      {/* Create Hub Modal */}
-      {showHubModal && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowHubModal(false)}>
-          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} style={{ position: 'relative', backgroundColor: theme.cardBg, padding: 32, borderRadius: 20, maxWidth: 500, width: '90%', boxShadow: theme.shadow }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 24px 0', fontSize: 24, fontWeight: 700, color: theme.text }}>Buat Delivery Hub</h3>
-            <form onSubmit={handleCreateHub}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Nama Hub *</label>
-                <input type="text" value={hubName} onChange={(e) => setHubName(e.target.value)} placeholder="Contoh: Hub Jakarta Selatan" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Kode Hub *</label>
-                <input type="text" value={hubCode} onChange={(e) => setHubCode(e.target.value.toUpperCase())} placeholder="Contoh: HUB-JS-001" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Alamat</label>
-                <textarea value={hubAddress} onChange={(e) => setHubAddress(e.target.value)} placeholder="Alamat lengkap hub..." style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15, minHeight: 80, fontFamily: 'inherit', resize: 'vertical' }} />
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <motion.button type="submit" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Simpan</motion.button>
-                <motion.button type="button" onClick={() => setShowHubModal(false)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: theme.textSecondary, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Batal</motion.button>
-              </div>
-            </form>
+      {/* Add New Courier Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowAddModal(false)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} style={{ position: 'relative', backgroundColor: theme.cardBg, padding: 32, borderRadius: 20, maxWidth: 500, width: '90%', boxShadow: theme.shadow }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: 24, fontWeight: 700, color: theme.text }}>Tambah Kurir Baru</h3>
+              <p style={{ color: theme.textSecondary, marginBottom: 24 }}>Buat akun kurir baru dan tugaskan langsung ke <strong>{selectedWarehouse?.name}</strong>.</p>
+              
+              <form onSubmit={handleAddNewCourier}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Nama Lengkap *</label>
+                  <input type="text" value={courierName} onChange={(e) => setCourierName(e.target.value)} placeholder="Nama lengkap kurir" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Email *</label>
+                  <input type="email" value={courierEmail} onChange={(e) => setCourierEmail(e.target.value)} placeholder="email@kurir.com" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
+                </div>
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14, color: theme.text }}>Password *</label>
+                  <input type="password" value={courierPassword} onChange={(e) => setCourierPassword(e.target.value)} placeholder="Minimal 6 karakter" style={{ width: '100%', padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 15 }} required />
+                </div>
+                
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <motion.button type="submit" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Simpan</motion.button>
+                  <motion.button type="button" onClick={() => setShowAddModal(false)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: 14, backgroundColor: theme.textSecondary, color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Batal</motion.button>
+                </div>
+              </form>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
