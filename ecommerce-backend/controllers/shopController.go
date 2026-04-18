@@ -8,6 +8,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+var validProvinces = map[string]bool{
+	"Aceh": true, "Sumatera Utara": true, "Sumatera Barat": true, "Riau": true, "Kepulauan Riau": true, "Jambi": true,
+	"Sumatera Selatan": true, "Bangka Belitung": true, "Bengkulu": true, "Lampung": true, "DKI Jakarta": true,
+	"Jawa Barat": true, "Banten": true, "Jawa Tengah": true, "DI Yogyakarta": true, "Jawa Timur": true,
+	"Bali": true, "Nusa Tenggara Barat": true, "Nusa Tenggara Timur": true, "Kalimantan Barat": true,
+	"Kalimantan Tengah": true, "Kalimantan Selatan": true, "Kalimantan Timur": true, "Kalimantan Utara": true,
+	"Sulawesi Utara": true, "Sulawesi Tengah": true, "Sulawesi Selatan": true, "Sulawesi Tenggara": true,
+	"Gorontalo": true, "Sulawesi Barat": true, "Maluku": true, "Maluku Utara": true, "Papua": true,
+	"Papua Barat": true, "Papua Selatan": true, "Papua Tengah": true, "Papua Pegunungan": true, "Papua Barat Daya": true,
+}
+
 // Daftar menjadi penjual (Membuat Toko)
 func CreateShop(c *fiber.Ctx) error {
 	// 1. Ambil User ID dari Token (disediakan oleh middleware "Satpam" kita)
@@ -48,11 +59,18 @@ func CreateShop(c *fiber.Ctx) error {
 		}
 	}
 
+	// Validasi provinsi jika diisi
+	if data["province"] != "" && !validProvinces[data["province"]] {
+		return c.Status(400).JSON(fiber.Map{"message": "Provinsi tidak valid"})
+	}
+
 	// 4. Buat toko baru dengan status "pending"
 	shop := models.Shop{
 		UserID:      userID,
 		ShopName:    data["shop_name"],
 		Description: data["description"],
+		Province:    data["province"],
+		Address:     data["address"],
 		Status:      "pending", // Wajib di-approve admin nanti
 	}
 
@@ -63,5 +81,60 @@ func CreateShop(c *fiber.Ctx) error {
 	return c.Status(201).JSON(fiber.Map{
 		"message": "Pengajuan toko berhasil! Menunggu persetujuan Admin.",
 		"shop":    shop,
+	})
+}
+
+// Mendapatkan profil toko sendiri (untuk seller)
+func GetShopProfile(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+
+	var shop models.Shop
+	if err := config.DB.Where("user_id = ?", userID).First(&shop).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Toko tidak ditemukan"})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"data": shop,
+	})
+}
+
+// Mengupdate profil toko (untuk seller)
+func UpdateShopProfile(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+
+	var shop models.Shop
+	if err := config.DB.Where("user_id = ?", userID).First(&shop).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Toko tidak ditemukan"})
+	}
+
+	var data map[string]string
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "Format data tidak valid"})
+	}
+
+	// Update fields if provided
+	if name, ok := data["shop_name"]; ok && name != "" {
+		shop.ShopName = name
+	}
+	if desc, ok := data["description"]; ok {
+		shop.Description = desc
+	}
+	if prov, ok := data["province"]; ok {
+		if prov != "" && !validProvinces[prov] {
+			return c.Status(400).JSON(fiber.Map{"message": "Provinsi tidak valid"})
+		}
+		shop.Province = prov
+	}
+	if addr, ok := data["address"]; ok {
+		shop.Address = addr
+	}
+
+	if err := config.DB.Save(&shop).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengupdate toko"})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"message": "Profil toko berhasil diupdate",
+		"data":    shop,
 	})
 }

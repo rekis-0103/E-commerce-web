@@ -22,16 +22,18 @@ type OTPRegistry struct {
 }
 
 type Shop struct {
-	ID                uint      `gorm:"primaryKey" json:"id"`
-	UserID            uint      `json:"user_id"`
-	Owner             User      `gorm:"foreignKey:UserID" json:"owner"`
-	ShopName          string    `json:"shop_name"`
-	Description       string    `json:"description"`
-	Badge             string    `gorm:"type:enum('Reguler', 'Terpercaya', 'Resmi');default:'Reguler'" json:"badge"`
-	Status            string    `gorm:"type:enum('pending', 'approved', 'rejected');default:'pending'" json:"status"`
+	ID                uint       `gorm:"primaryKey" json:"id"`
+	UserID            uint       `json:"user_id"`
+	Owner             User       `gorm:"foreignKey:UserID" json:"owner"`
+	ShopName          string     `json:"shop_name"`
+	Description       string     `json:"description"`
+	Province          string     `json:"province"`
+	Address           string     `json:"address"`
+	Badge             string     `gorm:"type:enum('Reguler', 'Terpercaya', 'Resmi');default:'Reguler'" json:"badge"`
+	Status            string     `gorm:"type:enum('pending', 'approved', 'rejected');default:'pending'" json:"status"`
 	LastRejectionDate *time.Time `json:"last_rejection_date"` // Tanggal terakhir ditolak (untuk cooldown 1 bulan)
-	ApprovedAt        *time.Time `json:"approved_at"`          // Tanggal disetujui
-	CreatedAt         time.Time `json:"created_at"`
+	ApprovedAt        *time.Time `json:"approved_at"`         // Tanggal disetujui
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 type Product struct {

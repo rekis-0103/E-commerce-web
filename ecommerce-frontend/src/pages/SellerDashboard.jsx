@@ -18,6 +18,22 @@ function SellerDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
 
+  const [activeTab, setActiveTab] = useState('products'); // 'products' or 'profile'
+  const [shopProfile, setShopProfile] = useState({ shop_name: '', description: '', province: '', address: '' });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const provinces = [
+    "Aceh", "Sumatera Utara", "Sumatera Barat", "Riau", "Kepulauan Riau", "Jambi", 
+    "Sumatera Selatan", "Bangka Belitung", "Bengkulu", "Lampung", "DKI Jakarta", 
+    "Jawa Barat", "Banten", "Jawa Tengah", "DI Yogyakarta", "Jawa Timur", 
+    "Bali", "Nusa Tenggara Barat", "Nusa Tenggara Timur", "Kalimantan Barat", 
+    "Kalimantan Tengah", "Kalimantan Selatan", "Kalimantan Timur", "Kalimantan Utara", 
+    "Sulawesi Utara", "Sulawesi Tengah", "Sulawesi Selatan", "Sulawesi Tenggara", 
+    "Gorontalo", "Sulawesi Barat", "Maluku", "Maluku Utara", "Papua", 
+    "Papua Barat", "Papua Selatan", "Papua Tengah", "Papua Pegunungan", "Papua Barat Daya"
+  ];
+
   const [formData, setFormData] = useState({ name: '', description: '', price: '', stock: '' });
   const [imageFiles, setImageFiles] = useState([]);
   const [imageSize, setImageSize] = useState(800);
@@ -30,6 +46,7 @@ function SellerDashboard() {
     if (role !== 'seller') navigate('/login');
     else {
       fetchProducts();
+      fetchShopProfile();
       // Ambil nama user dari profil
       axios.get('http://localhost:3000/api/user/profile', {
         headers: { Authorization: `Bearer ${token}` }
@@ -55,6 +72,46 @@ function SellerDashboard() {
         localStorage.clear();
         navigate('/login');
       }
+    }
+  };
+
+  const fetchShopProfile = async () => {
+    try {
+      const response = await axios.get('http://localhost:3000/api/seller/shop/profile', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.data) {
+        setShopProfile({
+          shop_name: response.data.data.shop_name || '',
+          description: response.data.data.description || '',
+          province: response.data.data.province || '',
+          address: response.data.data.address || ''
+        });
+      }
+    } catch (error) {
+      console.error("Gagal mengambil profil toko", error);
+    }
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (shopProfile.province && !provinces.includes(shopProfile.province)) {
+      alert("Provinsi tidak valid. Silakan pilih dari daftar yang tersedia.");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await axios.put('http://localhost:3000/api/seller/shop/profile', shopProfile, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Profil toko berhasil disimpan!');
+      setIsEditingProfile(false);
+      fetchShopProfile();
+    } catch (error) {
+      alert('Gagal menyimpan profil toko');
+      console.error(error);
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -320,30 +377,66 @@ function SellerDashboard() {
           border: `1px solid ${theme.border}`
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 25 }}>
-          <h3 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: theme.text }}>
-            📦 Daftar Produk
-          </h3>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={showForm ? () => setShowForm(false) : openCreateForm}
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 20, borderBottom: `1px solid ${theme.border}`, marginBottom: 25, paddingBottom: 10 }}>
+          <button
+            onClick={() => setActiveTab('products')}
             style={{
-              padding: '12px 24px',
-              backgroundColor: theme.primary,
-              color: 'white',
+              background: 'none',
               border: 'none',
-              borderRadius: 8,
+              fontSize: 18,
+              fontWeight: 700,
+              color: activeTab === 'products' ? theme.primary : theme.textSecondary,
               cursor: 'pointer',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
+              borderBottom: activeTab === 'products' ? `2px solid ${theme.primary}` : 'none',
+              paddingBottom: 5
             }}
           >
-            {showForm ? <><FaArrowLeft /> Batal</> : <><FaPlus /> Tambah Produk</>}
-          </motion.button>
+            📦 Daftar Produk
+          </button>
+          <button
+            onClick={() => setActiveTab('profile')}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: 18,
+              fontWeight: 700,
+              color: activeTab === 'profile' ? theme.primary : theme.textSecondary,
+              cursor: 'pointer',
+              borderBottom: activeTab === 'profile' ? `2px solid ${theme.primary}` : 'none',
+              paddingBottom: 5
+            }}
+          >
+            🏪 Profil Toko
+          </button>
         </div>
+
+        {activeTab === 'products' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 25 }}>
+              <h3 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: theme.text }}>
+                Produk Anda
+              </h3>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={showForm ? () => setShowForm(false) : openCreateForm}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: theme.primary,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+              >
+                {showForm ? <><FaArrowLeft /> Batal</> : <><FaPlus /> Tambah Produk</>}
+              </motion.button>
+            </div>
 
         {showForm && (
           <motion.form
@@ -710,6 +803,188 @@ function SellerDashboard() {
             );
           })}
         </div>
+          </>
+        )}
+
+        {activeTab === 'profile' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 25 }}>
+              <h3 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: theme.text }}>
+                Informasi Toko
+              </h3>
+              {!isEditingProfile && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => setIsEditingProfile(true)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#F59E0B',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}
+                >
+                  <FaEdit /> Edit Profil
+                </motion.button>
+              )}
+            </div>
+
+            {isEditingProfile ? (
+              <form onSubmit={handleSaveProfile}>
+                <div style={{ marginBottom: 15 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: theme.text }}>Nama Toko</label>
+                  <input
+                    type="text"
+                    required
+                    value={shopProfile.shop_name}
+                    onChange={(e) => setShopProfile({ ...shopProfile, shop_name: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: 12,
+                      borderRadius: 8,
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: theme.inputBg,
+                      color: theme.text,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 15 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: theme.text }}>Deskripsi Toko</label>
+                  <textarea
+                    rows="4"
+                    value={shopProfile.description}
+                    onChange={(e) => setShopProfile({ ...shopProfile, description: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: 12,
+                      borderRadius: 8,
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: theme.inputBg,
+                      color: theme.text,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 15 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: theme.text }}>Lokasi Toko (Provinsi)</label>
+                  <input
+                    list="provinces-list"
+                    required
+                    placeholder="Ketik atau pilih provinsi..."
+                    value={shopProfile.province}
+                    onChange={(e) => setShopProfile({ ...shopProfile, province: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: 12,
+                      borderRadius: 8,
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: theme.inputBg,
+                      color: theme.text,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <datalist id="provinces-list">
+                    {provinces.map((prov, index) => (
+                      <option key={index} value={prov} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div style={{ marginBottom: 25 }}>
+                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: theme.text }}>Alamat Lengkap Toko</label>
+                  <textarea
+                    rows="3"
+                    required
+                    value={shopProfile.address}
+                    onChange={(e) => setShopProfile({ ...shopProfile, address: e.target.value })}
+                    placeholder="Masukkan alamat lengkap dengan kecamatan, kelurahan, jalan, no rumah..."
+                    style={{
+                      width: '100%',
+                      padding: 12,
+                      borderRadius: 8,
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: theme.inputBg,
+                      color: theme.text,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 15 }}>
+                  <motion.button
+                    type="submit"
+                    disabled={savingProfile}
+                    whileHover={{ scale: 1.05 }}
+                    style={{
+                      padding: '12px 24px',
+                      backgroundColor: '#10B981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 8,
+                      fontWeight: 600,
+                      cursor: savingProfile ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      opacity: savingProfile ? 0.7 : 1
+                    }}
+                  >
+                    <FaCheck /> {savingProfile ? 'Menyimpan...' : 'Simpan Profil'}
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingProfile(false);
+                      fetchShopProfile(); // reset changes
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    style={{
+                      padding: '12px 24px',
+                      backgroundColor: '#6B7280',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 8,
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Batal
+                  </motion.button>
+                </div>
+              </form>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                <div>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Nama Toko</p>
+                  <p style={{ color: theme.text, fontWeight: 600, fontSize: 16 }}>{shopProfile.shop_name || '-'}</p>
+                </div>
+                <div>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Provinsi</p>
+                  <p style={{ color: theme.text, fontWeight: 600, fontSize: 16 }}>{shopProfile.province || '-'}</p>
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Deskripsi Toko</p>
+                  <p style={{ color: theme.text, fontSize: 16 }}>{shopProfile.description || '-'}</p>
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Alamat Lengkap</p>
+                  <p style={{ color: theme.text, fontSize: 16 }}>{shopProfile.address || '-'}</p>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Crop Modal */}

@@ -55,6 +55,8 @@ func Setup(app *fiber.App) {
 	admin.Get("/courier/all", controllers.GetAllCouriersWithWarehouse) 
 
 	seller := api.Group("/seller", middleware.Protected, middleware.IsSeller)
+	seller.Get("/shop/profile", controllers.GetShopProfile)
+	seller.Put("/shop/profile", controllers.UpdateShopProfile)
 	seller.Post("/products", controllers.CreateProduct)
 	seller.Get("/products", controllers.GetMyShopProducts)
 	seller.Put("/products/:id", controllers.UpdateProduct)
