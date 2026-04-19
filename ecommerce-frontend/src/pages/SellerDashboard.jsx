@@ -4,7 +4,7 @@ import axios from 'axios';
 import ImageCropModal from '../components/ImageCropModal';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
-import { FaEdit, FaTimes, FaSignOutAlt, FaBox, FaPlus, FaCheck, FaArrowLeft, FaTruck } from 'react-icons/fa';
+import { FaEdit, FaTimes, FaSignOutAlt, FaBox, FaPlus, FaCheck, FaArrowLeft, FaTruck, FaHome } from 'react-icons/fa';
 
 function SellerDashboard() {
   const { theme } = useTheme();
@@ -301,6 +301,26 @@ function SellerDashboard() {
         </motion.h2>
 
         <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/home')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#10B981',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}
+          >
+            <FaHome /> Halaman Buyer
+          </motion.button>
+
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
