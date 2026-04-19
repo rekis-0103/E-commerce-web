@@ -54,6 +54,12 @@ func Setup(app *fiber.App) {
 	admin.Post("/courier/assign-warehouse", controllers.AssignCourierToWarehouse)
 	admin.Get("/courier/all", controllers.GetAllCouriersWithWarehouse) 
 
+	// Delivery Hub Admin Management
+	admin.Post("/hub/register", controllers.RegisterDeliveryHub)
+	admin.Get("/hub/all", controllers.GetAllDeliveryHubs)
+	admin.Put("/hub/assign-courier/:id", controllers.AssignCourierToHub)
+	admin.Post("/hub/assign-shipment", controllers.AssignShipmentToHub) 
+
 	seller := api.Group("/seller", middleware.Protected, middleware.IsSeller)
 	seller.Get("/shop/profile", controllers.GetShopProfile)
 	seller.Put("/shop/profile", controllers.UpdateShopProfile)
@@ -95,6 +101,8 @@ func Setup(app *fiber.App) {
 	// Warehouse management routes
 	warehouse.Post("/register", controllers.RegisterWarehouse)
 	warehouse.Get("/my-warehouse", controllers.GetMyWarehouse)
+	warehouse.Get("/incoming", controllers.GetIncomingShipments)
+	warehouse.Get("/stock", controllers.GetWarehouseStock)
 	warehouse.Post("/movement", controllers.RecordMovement)
 	warehouse.Get("/movements", controllers.GetWarehouseMovements)
 	warehouse.Get("/staff/available", controllers.GetAvailableStaff)

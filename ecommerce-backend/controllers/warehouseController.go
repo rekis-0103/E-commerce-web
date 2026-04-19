@@ -122,16 +122,33 @@ func RecordMovement(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"message": "Tipe pergerakan harus 'masuk' atau 'keluar'"})
 	}
 
+	// Dapatkan gudang milik user
+	var warehouse models.Warehouse
+	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
+		// Cek jika dia staff
+		var user models.User
+		config.DB.First(&user, userID)
+		if user.WarehouseID != nil {
+			config.DB.First(&warehouse, user.WarehouseID)
+		} else {
+			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
+		}
+	}
+
+	// LOGIKA KHUSUS TIPE GUDANG
+	if warehouse.WarehouseType == "pengiriman" && req.MovementType == "keluar" {
+		// Gudang pengiriman hanya boleh keluar ke KURIR, bukan antar gudang
+		if req.Status != "Diserahkan ke Kurir" {
+			return c.Status(400).JSON(fiber.Map{
+				"message": "Gudang pengiriman hanya bisa memproses barang keluar untuk diserahkan ke kurir (Gunakan status 'Diserahkan ke Kurir')",
+			})
+		}
+	}
+
 	// Cek apakah resi ada di sistem
 	var shipment models.Shipment
 	if err := config.DB.Where("tracking_number = ?", req.TrackingNumber).First(&shipment).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"message": "Nomor resi tidak ditemukan di sistem"})
-	}
-
-	// Dapatkan gudang milik user
-	var warehouse models.Warehouse
-	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
 	}
 
 	// Mulai transaksi
@@ -162,7 +179,14 @@ func RecordMovement(c *fiber.Ctx) error {
 	// Update current location shipment
 	shipment.CurrentLocation = warehouse.Name
 	if req.MovementType == "keluar" {
-		shipment.CurrentLocation = fmt.Sprintf("Keluar dari %s", warehouse.Name)
+		if req.Status == "Diserahkan ke Kurir" {
+			shipment.CurrentLocation = "Dalam Perjalanan ke Alamat Pembeli"
+			shipment.CurrentStatus = "Dalam Perjalanan"
+		} else {
+			shipment.CurrentLocation = fmt.Sprintf("Keluar dari %s", warehouse.Name)
+		}
+	} else if req.MovementType == "masuk" {
+		shipment.CurrentStatus = "Diproses di Gudang"
 	}
 
 	if err := tx.Save(&shipment).Error; err != nil {
@@ -193,6 +217,77 @@ func RecordMovement(c *fiber.Ctx) error {
 		"message":  fmt.Sprintf("Berhasil mencatat barang %s", req.MovementType),
 		"movement": movement,
 		"log_id":   log.ID,
+	})
+}
+
+// GetIncomingShipments - Mendapatkan daftar barang yang kemungkinan akan masuk ke gudang ini
+func GetIncomingShipments(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+
+	var warehouse models.Warehouse
+	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
+		var user models.User
+		config.DB.First(&user, userID)
+		if user.WarehouseID != nil {
+			config.DB.First(&warehouse, user.WarehouseID)
+		} else {
+			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
+		}
+	}
+
+	var shipments []models.Shipment
+	
+	// Kriteria barang masuk:
+	// 1. Status 'Dikirim' atau 'Dalam Perjalanan'
+	// 2. Lokasi saat ini bukan gudang ini
+	// 3. (Opsional) Alamat pengiriman di provinsi yang sama dengan gudang
+	
+	query := config.DB.Where("current_location != ? AND current_status IN (?)", warehouse.Name, []string{"Dikirim", "Dalam Perjalanan"})
+	
+	// Jika gudang pengiriman, filter berdasarkan provinsi
+	if warehouse.WarehouseType == "pengiriman" {
+		query = query.Where("shipping_address LIKE ?", "%"+warehouse.Province+"%")
+	}
+
+	if err := query.Find(&shipments).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data barang masuk"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Data barang masuk berhasil diambil",
+		"data":    shipments,
+	})
+}
+
+// GetWarehouseStock - Mendapatkan daftar barang yang saat ini berada di dalam gudang
+func GetWarehouseStock(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+
+	var warehouse models.Warehouse
+	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
+		var user models.User
+		config.DB.First(&user, userID)
+		if user.WarehouseID != nil {
+			config.DB.First(&warehouse, user.WarehouseID)
+		} else {
+			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
+		}
+	}
+
+	var shipments []models.Shipment
+	
+	// Kriteria barang di gudang:
+	// 1. Lokasi saat ini adalah gudang ini
+	// 2. Status pengiriman adalah 'Diproses di Gudang' atau 'Dikirim' (jika baru masuk)
+	
+	if err := config.DB.Where("current_location = ? AND current_status != ?", warehouse.Name, "Selesai").
+		Find(&shipments).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data stok gudang"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Data stok gudang berhasil diambil",
+		"data":    shipments,
 	})
 }
 
