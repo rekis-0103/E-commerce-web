@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
-import { motion } from 'framer-motion';
-import { FaWarehouse, FaBoxOpen, FaSignOutAlt, FaPlus, FaHistory, FaArrowRight, FaArrowLeft, FaUsers, FaUserPlus } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaWarehouse, FaBoxOpen, FaSignOutAlt, FaPlus, FaHistory, FaArrowRight, FaArrowLeft, FaUsers, FaBox, FaCheckCircle, FaTruck, FaSyncAlt } from 'react-icons/fa';
+
+const API = 'http://localhost:3000/api';
 
 function WarehouseManagement() {
   const { theme } = useTheme();
@@ -11,339 +13,365 @@ function WarehouseManagement() {
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
 
+  const [activeTab, setActiveTab] = useState('incoming');
   const [warehouse, setWarehouse] = useState(null);
   const [movements, setMovements] = useState([]);
   const [incomingShipments, setIncomingShipments] = useState([]);
   const [warehouseStock, setWarehouseStock] = useState([]);
   const [availableStaff, setAvailableStaff] = useState([]);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
-  const [showMovementForm, setShowMovementForm] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [showMovementModal, setShowMovementModal] = useState(null); // { resi, type, status }
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [movementNotes, setMovementNotes] = useState('');
 
-  // Form states untuk register gudang
   const [warehouseName, setWarehouseName] = useState('');
   const [warehouseCode, setWarehouseCode] = useState('');
   const [warehouseAddress, setWarehouseAddress] = useState('');
   const [warehouseProvince, setWarehouseProvince] = useState('');
   const [warehouseType, setWarehouseType] = useState('pengiriman');
 
-  const provinces = [
-    "Aceh", "Sumatera Utara", "Sumatera Barat", "Riau", "Kepulauan Riau", "Jambi", 
-    "Sumatera Selatan", "Bangka Belitung", "Bengkulu", "Lampung", "DKI Jakarta", 
-    "Jawa Barat", "Banten", "Jawa Tengah", "DI Yogyakarta", "Jawa Timur", 
-    "Bali", "Nusa Tenggara Barat", "Nusa Tenggara Timur", "Kalimantan Barat", 
-    "Kalimantan Tengah", "Kalimantan Selatan", "Kalimantan Timur", "Kalimantan Utara", 
-    "Sulawesi Utara", "Sulawesi Tengah", "Sulawesi Selatan", "Sulawesi Tenggara", 
-    "Gorontalo", "Sulawesi Barat", "Maluku", "Maluku Utara", "Papua", 
-    "Papua Barat", "Papua Selatan", "Papua Tengah", "Papua Pegunungan", "Papua Barat Daya"
-  ];
+  const provinces = ["Aceh","Sumatera Utara","Sumatera Barat","Riau","Kepulauan Riau","Jambi","Sumatera Selatan","Bangka Belitung","Bengkulu","Lampung","DKI Jakarta","Jawa Barat","Banten","Jawa Tengah","DI Yogyakarta","Jawa Timur","Bali","Nusa Tenggara Barat","Nusa Tenggara Timur","Kalimantan Barat","Kalimantan Tengah","Kalimantan Selatan","Kalimantan Timur","Kalimantan Utara","Sulawesi Utara","Sulawesi Tengah","Sulawesi Selatan","Sulawesi Tenggara","Gorontalo","Sulawesi Barat","Maluku","Maluku Utara","Papua","Papua Barat","Papua Selatan","Papua Tengah","Papua Pegunungan","Papua Barat Daya"];
 
-  // Form states untuk input pergerakan barang
-  const [trackingNumber, setTrackingNumber] = useState('');
-  const [movementType, setMovementType] = useState('');
-  const [movementStatus, setMovementStatus] = useState('');
-  const [movementNotes, setMovementNotes] = useState('');
+  const headers = { Authorization: `Bearer ${token}` };
+
+  const fetchAll = useCallback(async (showRefresh = false) => {
+    if (showRefresh) setIsRefreshing(true);
+    try {
+      const [wRes, inRes, stRes, mvRes] = await Promise.all([
+        axios.get(`${API}/warehouse/my-warehouse`, { headers }),
+        axios.get(`${API}/warehouse/incoming`, { headers }),
+        axios.get(`${API}/warehouse/stock`, { headers }),
+        axios.get(`${API}/warehouse/movements`, { headers }),
+      ]);
+      setWarehouse(wRes.data.data);
+      setIncomingShipments(inRes.data.data || []);
+      setWarehouseStock(stRes.data.data || []);
+      setMovements(mvRes.data.data || []);
+    } catch (err) {
+      if (err.response?.status === 404) setShowRegisterForm(true);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [token]);
+
+  const fetchStaff = async () => {
+    try {
+      const res = await axios.get(`${API}/warehouse/staff/available`, { headers });
+      setAvailableStaff(res.data.data || []);
+    } catch {}
+  };
 
   useEffect(() => {
-    if (role !== 'warehouse_staff') {
-      navigate('/login');
-      return;
-    }
-    fetchWarehouseData();
-  }, [role, navigate]);
+    if (role !== 'warehouse_staff') { navigate('/login'); return; }
+    fetchAll();
+  }, [role, navigate, fetchAll]);
 
-  const fetchWarehouseData = async () => {
+  const handleRegister = async (e) => {
+    e.preventDefault();
     try {
-      const response = await axios.get('http://localhost:3000/api/warehouse/my-warehouse', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setWarehouse(response.data.data);
-      fetchIncomingShipments();
-      fetchWarehouseStock();
-      setIsLoading(false);
-    } catch (error) {
-      if (error.response?.status === 404) {
-        setShowRegisterForm(true);
-      }
-      setIsLoading(false);
-    }
+      await axios.post(`${API}/warehouse/register`, {
+        name: warehouseName, code: warehouseCode,
+        address: warehouseAddress, province: warehouseProvince,
+        warehouse_type: warehouseType
+      }, { headers });
+      alert('✅ Gudang berhasil didaftarkan!');
+      setShowRegisterForm(false);
+      fetchAll();
+    } catch (err) { alert(err.response?.data?.message || 'Gagal mendaftarkan gudang'); }
   };
 
-  const fetchIncomingShipments = async () => {
+  const handleMovement = async () => {
+    if (!showMovementModal) return;
     try {
-      const response = await axios.get('http://localhost:3000/api/warehouse/incoming', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setIncomingShipments(response.data.data || []);
-    } catch (error) {
-      console.error("Gagal mengambil data barang masuk", error);
-    }
-  };
-
-  const fetchWarehouseStock = async () => {
-    try {
-      const response = await axios.get('http://localhost:3000/api/warehouse/stock', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setWarehouseStock(response.data.data || []);
-    } catch (error) {
-      console.error("Gagal mengambil data stok gudang", error);
-    }
-  };
-
-  const fetchMovements = async () => {
-    try {
-      const response = await axios.get('http://localhost:3000/api/warehouse/movements', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMovements(response.data.data || []);
-      setShowHistory(true);
-    } catch (error) {
-      console.error("Gagal mengambil riwayat pergerakan", error);
-      alert("Gagal mengambil riwayat pergerakan");
-    }
-  };
-
-  const fetchAvailableStaff = async () => {
-    try {
-      const response = await axios.get('http://localhost:3000/api/warehouse/staff/available', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setAvailableStaff(response.data.data || []);
-      setShowStaffModal(true);
-    } catch (error) {
-      console.error("Gagal mengambil daftar staf", error);
-    }
+      await axios.post(`${API}/warehouse/movement`, {
+        tracking_number: showMovementModal.resi,
+        movement_type: showMovementModal.type,
+        status: showMovementModal.status,
+        notes: movementNotes
+      }, { headers });
+      alert(`✅ Berhasil mencatat barang ${showMovementModal.type}!`);
+      setShowMovementModal(null);
+      setMovementNotes('');
+      fetchAll(true);
+    } catch (err) { alert(err.response?.data?.message || 'Gagal mencatat pergerakan'); }
   };
 
   const handleAddStaff = async (staffId) => {
     try {
-      await axios.post('http://localhost:3000/api/warehouse/staff/add', {
-        staff_id: staffId
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      alert("✅ Staf berhasil ditambahkan!");
-      fetchAvailableStaff();
-      fetchWarehouseData();
-    } catch (error) {
-      alert(error.response?.data?.message || "Gagal menambahkan staf");
-    }
+      await axios.post(`${API}/warehouse/staff/add`, { staff_id: staffId }, { headers });
+      alert('✅ Staf berhasil ditambahkan!');
+      fetchStaff();
+      fetchAll();
+    } catch (err) { alert(err.response?.data?.message || 'Gagal menambahkan staf'); }
   };
 
-  const handleRegisterWarehouse = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post('http://localhost:3000/api/warehouse/register', {
-        name: warehouseName,
-        code: warehouseCode,
-        address: warehouseAddress,
-        province: warehouseProvince,
-        warehouse_type: warehouseType
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      alert("✅ Gudang berhasil didaftarkan!");
-      setShowRegisterForm(false);
-      fetchWarehouseData();
-    } catch (error) {
-      alert(error.response?.data?.message || "Gagal mendaftarkan gudang");
-    }
-  };
+  const handleLogout = () => { localStorage.clear(); navigate('/login'); };
 
-  const handleRecordMovement = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post('http://localhost:3000/api/warehouse/movement', {
-        tracking_number: trackingNumber,
-        movement_type: movementType,
-        status: movementStatus,
-        notes: movementNotes
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      alert(`✅ Berhasil mencatat barang ${movementType}!`);
-      setShowMovementForm(false);
-      setTrackingNumber('');
-      setMovementType('');
-      setMovementStatus('');
-      setMovementNotes('');
-      fetchWarehouseData();
-    } catch (error) {
-      alert(error.response?.data?.message || "Gagal mencatat pergerakan");
-    }
-  };
+  const cardStyle = { backgroundColor: theme.cardBg, borderRadius: 16, border: `1px solid ${theme.border}`, boxShadow: theme.shadow };
+  const btnBase = { border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 };
+  const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 14, boxSizing: 'border-box' };
 
-  const handleProcessIncoming = (resi) => {
-    setTrackingNumber(resi);
-    setMovementType('masuk');
-    setMovementStatus('Diterima di gudang');
-    setShowMovementForm(true);
-  };
-
-  const handleDispatchToCourier = (resi) => {
-    setTrackingNumber(resi);
-    setMovementType('keluar');
-    setMovementStatus('Diserahkan ke Kurir');
-    setShowMovementForm(true);
-  };
-
-  const handleDispatchToSortir = (resi) => {
-    setTrackingNumber(resi);
-    setMovementType('keluar');
-    setMovementStatus('Keluar untuk Sortir');
-    setShowMovementForm(true);
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
-
-  const getMovementIcon = (type) => type === 'masuk' ? <FaArrowLeft /> : <FaArrowRight />;
-  const getMovementColor = (type) => type === 'masuk' ? '#10B981' : '#EF4444';
-
-  if (isLoading) {
-    return (
-      <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <h2 style={{ color: theme.textSecondary }}>Memuat Data Gudang...</h2>
-      </div>
-    );
-  }
+  if (isLoading) return (
+    <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <h2 style={{ color: theme.textSecondary }}>Memuat Data Gudang...</h2>
+    </div>
+  );
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", background: theme.bg, minHeight: '100vh', padding: '40px 60px' }}>
+    <div style={{ fontFamily: "'Inter', sans-serif", background: theme.bg, minHeight: '100vh', padding: '32px 48px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 }}>
-        <h2 style={{ fontSize: 32, fontWeight: 800, color: theme.text }}>🏭 Manajemen Gudang</h2>
-        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+        <div>
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: theme.text, margin: 0 }}>🏭 Manajemen Gudang</h2>
+          {warehouse && <p style={{ color: theme.textSecondary, margin: '4px 0 0' }}>{warehouse.name} ({warehouse.code}) · {warehouse.province}</p>}
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <DarkModeToggle />
-          <button onClick={handleLogout} style={{ padding: '12px 24px', backgroundColor: '#EF4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+          <motion.button whileHover={{ scale: 1.05 }} onClick={() => fetchAll(true)}
+            style={{ ...btnBase, padding: '10px 16px', background: '#3B82F6', color: 'white' }}>
+            <FaSyncAlt style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} /> Refresh
+          </motion.button>
+          <motion.button whileHover={{ scale: 1.05 }} onClick={handleLogout}
+            style={{ ...btnBase, padding: '10px 20px', background: '#EF4444', color: 'white' }}>
             <FaSignOutAlt /> Logout
-          </button>
+          </motion.button>
         </div>
       </div>
 
+      {/* Register Form */}
       {showRegisterForm && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 16, border: `1px solid ${theme.border}` }}>
-          <h3>Daftarkan Gudang Baru</h3>
-          <form onSubmit={handleRegisterWarehouse}>
-             {/* Form fields... simplified for brevity but complete in function */}
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-               <input type="text" placeholder="Nama Gudang" value={warehouseName} onChange={e => setWarehouseName(e.target.value)} required style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} />
-               <input type="text" placeholder="Kode Gudang" value={warehouseCode} onChange={e => setWarehouseCode(e.target.value.toUpperCase())} required style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} />
-             </div>
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-               <select value={warehouseProvince} onChange={e => setWarehouseProvince(e.target.value)} required style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }}>
-                 <option value="">Pilih Provinsi</option>
-                 {provinces.map(p => <option key={p} value={p}>{p}</option>)}
-               </select>
-               <select value={warehouseType} onChange={e => setWarehouseType(e.target.value)} required style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }}>
-                 <option value="pengiriman">Gudang Pengiriman</option>
-                 <option value="sortir">Tempat Sortir</option>
-               </select>
-             </div>
-             <button type="submit" style={{ width: '100%', padding: 14, backgroundColor: '#10B981', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Daftarkan</button>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          style={{ ...cardStyle, padding: 32, marginBottom: 32 }}>
+          <h3 style={{ color: theme.text, marginTop: 0 }}>📋 Daftarkan Gudang Baru</h3>
+          <form onSubmit={handleRegister}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <input style={inputStyle} placeholder="Nama Gudang" value={warehouseName} onChange={e => setWarehouseName(e.target.value)} required />
+              <input style={inputStyle} placeholder="Kode Gudang (ex: GDG-JKT-01)" value={warehouseCode} onChange={e => setWarehouseCode(e.target.value.toUpperCase())} required />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <select style={inputStyle} value={warehouseProvince} onChange={e => setWarehouseProvince(e.target.value)} required>
+                <option value="">-- Pilih Provinsi --</option>
+                {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <select style={inputStyle} value={warehouseType} onChange={e => setWarehouseType(e.target.value)} required>
+                <option value="pengiriman">Gudang Pengiriman</option>
+                <option value="sortir">Tempat Sortir</option>
+              </select>
+            </div>
+            <input style={{ ...inputStyle, marginBottom: 20 }} placeholder="Alamat Lengkap" value={warehouseAddress} onChange={e => setWarehouseAddress(e.target.value)} />
+            <button type="submit" style={{ ...btnBase, padding: '12px 32px', background: '#10B981', color: 'white', justifyContent: 'center', width: '100%' }}>
+              Daftarkan Gudang
+            </button>
           </form>
         </motion.div>
       )}
 
       {warehouse && !showRegisterForm && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 32, marginBottom: 32 }}>
-            <div style={{ backgroundColor: theme.cardBg, padding: 24, borderRadius: 16, border: `1px solid ${theme.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+            {[
+              { label: 'Barang Akan Masuk', value: incomingShipments.length, color: '#F59E0B', icon: <FaBoxOpen /> },
+              { label: 'Stok di Gudang', value: warehouseStock.length, color: '#3B82F6', icon: <FaBox /> },
+              { label: 'Total Pergerakan', value: movements.length, color: '#8B5CF6', icon: <FaHistory /> },
+              { label: 'Tipe Gudang', value: warehouse.warehouse_type === 'pengiriman' ? 'Pengiriman' : 'Sortir', color: '#10B981', icon: <FaWarehouse /> },
+            ].map((s, i) => (
+              <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
+                style={{ ...cardStyle, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 48, height: 48, borderRadius: 12, background: s.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color, fontSize: 20 }}>
+                  {s.icon}
+                </div>
                 <div>
-                  <h3 style={{ margin: 0, color: theme.text }}>{warehouse.name} ({warehouse.warehouse_type})</h3>
-                  <p style={{ color: theme.textSecondary }}>{warehouse.code} | {warehouse.province}</p>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: theme.text }}>{s.value}</div>
+                  <div style={{ fontSize: 12, color: theme.textSecondary }}>{s.label}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setShowMovementForm(true)} style={{ padding: '10px 15px', backgroundColor: '#10B981', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer' }}><FaPlus /> Pergerakan</button>
-                  <button onClick={fetchMovements} style={{ padding: '10px 15px', backgroundColor: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer' }}><FaHistory /> Riwayat</button>
-                </div>
-              </div>
-            </div>
-            <div style={{ backgroundColor: theme.cardBg, padding: 24, borderRadius: 16, border: `1px solid ${theme.border}`, textAlign: 'center' }}>
-              <FaWarehouse size={40} color={theme.text} />
-              <h4 style={{ color: theme.text }}>Status: AKTIF</h4>
-            </div>
+              </motion.div>
+            ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-            {/* Incoming */}
-            <div style={{ backgroundColor: theme.cardBg, padding: 24, borderRadius: 16, border: `1px solid ${theme.border}` }}>
-              <h4 style={{ color: theme.text }}><FaBoxOpen /> Barang Akan Masuk ({incomingShipments.length})</h4>
-              {incomingShipments.map(s => (
-                <div key={s.id} style={{ padding: 12, background: theme.bg, borderRadius: 8, marginBottom: 10, display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: theme.text }}>{s.tracking_number}</span>
-                  <button onClick={() => handleProcessIncoming(s.tracking_number)} style={{ background: '#10B981', color: 'white', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}>Terima</button>
-                </div>
-              ))}
-            </div>
-            {/* Stock */}
-            <div style={{ backgroundColor: theme.cardBg, padding: 24, borderRadius: 16, border: `1px solid ${theme.border}` }}>
-              <h4 style={{ color: theme.text }}><FaBoxOpen /> Stok di Gudang ({warehouseStock.length})</h4>
-              {warehouseStock.map(s => (
-                <div key={s.id} style={{ padding: 12, background: theme.bg, borderRadius: 8, marginBottom: 10, display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: theme.text }}>{s.tracking_number}</span>
-                  <button 
-                    onClick={() => warehouse.warehouse_type === 'pengiriman' ? handleDispatchToCourier(s.tracking_number) : handleDispatchToSortir(s.tracking_number)} 
-                    style={{ background: warehouse.warehouse_type === 'pengiriman' ? '#8B5CF6' : '#F59E0B', color: 'white', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
-                  >
-                    {warehouse.warehouse_type === 'pengiriman' ? 'Kirim Kurir' : 'Kirim Sortir'}
-                  </button>
-                </div>
-              ))}
-            </div>
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+            {[
+              { key: 'incoming', label: `📥 Akan Masuk (${incomingShipments.length})` },
+              { key: 'stock', label: `📦 Stok Gudang (${warehouseStock.length})` },
+              { key: 'history', label: `📋 Riwayat (${movements.length})` },
+              { key: 'staff', label: `👥 Staf` },
+            ].map(tab => (
+              <button key={tab.key} onClick={() => { setActiveTab(tab.key); if (tab.key === 'staff') fetchStaff(); }}
+                style={{ ...btnBase, padding: '10px 20px', fontSize: 14,
+                  background: activeTab === tab.key ? '#6366F1' : theme.cardBg,
+                  color: activeTab === tab.key ? 'white' : theme.textSecondary,
+                  border: `1px solid ${activeTab === tab.key ? '#6366F1' : theme.border}` }}>
+                {tab.label}
+              </button>
+            ))}
           </div>
+
+          {/* Tab: Incoming */}
+          {activeTab === 'incoming' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {incomingShipments.length === 0 ? (
+                <div style={{ ...cardStyle, padding: 60, textAlign: 'center' }}>
+                  <FaBoxOpen style={{ fontSize: 48, color: theme.textSecondary, marginBottom: 16 }} />
+                  <p style={{ color: theme.textSecondary }}>Tidak ada barang yang akan masuk</p>
+                </div>
+              ) : incomingShipments.map((s, i) => (
+                <motion.div key={s.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                  style={{ ...cardStyle, padding: '16px 24px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.text, fontSize: 15 }}>#{s.tracking_number}</div>
+                    <div style={{ color: theme.textSecondary, fontSize: 13, marginTop: 2 }}>📍 {s.shipping_address || '-'}</div>
+                    <div style={{ color: '#F59E0B', fontSize: 12, marginTop: 2 }}>Status: {s.current_status}</div>
+                  </div>
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowMovementModal({ resi: s.tracking_number, type: 'masuk', status: 'Diterima di Gudang' })}
+                    style={{ ...btnBase, padding: '9px 18px', background: '#10B981', color: 'white' }}>
+                    <FaCheckCircle /> Terima Barang
+                  </motion.button>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Tab: Stock */}
+          {activeTab === 'stock' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {warehouseStock.length === 0 ? (
+                <div style={{ ...cardStyle, padding: 60, textAlign: 'center' }}>
+                  <FaBox style={{ fontSize: 48, color: theme.textSecondary, marginBottom: 16 }} />
+                  <p style={{ color: theme.textSecondary }}>Gudang kosong</p>
+                </div>
+              ) : warehouseStock.map((s, i) => (
+                <motion.div key={s.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                  style={{ ...cardStyle, padding: '16px 24px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.text, fontSize: 15 }}>#{s.tracking_number}</div>
+                    <div style={{ color: theme.textSecondary, fontSize: 13, marginTop: 2 }}>📍 {s.shipping_address || '-'}</div>
+                    <div style={{ color: '#3B82F6', fontSize: 12, marginTop: 2 }}>Lokasi: {s.current_location}</div>
+                  </div>
+                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowMovementModal({
+                      resi: s.tracking_number,
+                      type: 'keluar',
+                      status: warehouse.warehouse_type === 'pengiriman' ? 'Diserahkan ke Kurir' : 'Keluar untuk Sortir'
+                    })}
+                    style={{ ...btnBase, padding: '9px 18px',
+                      background: warehouse.warehouse_type === 'pengiriman' ? '#8B5CF6' : '#F59E0B',
+                      color: 'white' }}>
+                    <FaTruck /> {warehouse.warehouse_type === 'pengiriman' ? 'Kirim ke Kurir' : 'Kirim ke Sortir'}
+                  </motion.button>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Tab: History */}
+          {activeTab === 'history' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {movements.length === 0 ? (
+                <div style={{ ...cardStyle, padding: 60, textAlign: 'center' }}>
+                  <FaHistory style={{ fontSize: 48, color: theme.textSecondary, marginBottom: 16 }} />
+                  <p style={{ color: theme.textSecondary }}>Belum ada riwayat pergerakan</p>
+                </div>
+              ) : movements.map((m, i) => (
+                <motion.div key={m.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+                  style={{ ...cardStyle, padding: '14px 24px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: m.movement_type === 'masuk' ? '#10B98122' : '#EF444422', display: 'flex', alignItems: 'center', justifyContent: 'center', color: m.movement_type === 'masuk' ? '#10B981' : '#EF4444', fontSize: 16 }}>
+                      {m.movement_type === 'masuk' ? <FaArrowLeft /> : <FaArrowRight />}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: theme.text, fontSize: 14 }}>
+                        {m.movement_type === 'masuk' ? 'MASUK' : 'KELUAR'} · #{m.tracking_number}
+                      </div>
+                      <div style={{ color: theme.textSecondary, fontSize: 12 }}>{m.status}</div>
+                    </div>
+                  </div>
+                  <div style={{ color: theme.textSecondary, fontSize: 12 }}>
+                    {new Date(m.processed_at).toLocaleString('id-ID')}
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Tab: Staff */}
+          {activeTab === 'staff' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div style={{ ...cardStyle, padding: 24, marginBottom: 16 }}>
+                <h4 style={{ color: theme.text, margin: '0 0 16px' }}>Staf Saat Ini di Gudang</h4>
+                {(warehouse.staff || []).length === 0 ? (
+                  <p style={{ color: theme.textSecondary }}>Belum ada staf yang ditugaskan.</p>
+                ) : (warehouse.staff || []).map(s => (
+                  <div key={s.id} style={{ padding: '10px 16px', background: theme.bg, borderRadius: 8, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#6366F1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700 }}>
+                      {s.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: theme.text }}>{s.name}</div>
+                      <div style={{ fontSize: 12, color: theme.textSecondary }}>{s.email}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ ...cardStyle, padding: 24 }}>
+                <h4 style={{ color: theme.text, margin: '0 0 16px' }}>Tambah Staf Baru</h4>
+                {availableStaff.length === 0 ? (
+                  <p style={{ color: theme.textSecondary }}>Tidak ada staf yang tersedia.</p>
+                ) : availableStaff.map(s => (
+                  <div key={s.id} style={{ padding: '10px 16px', background: theme.bg, borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, color: theme.text }}>{s.name}</div>
+                      <div style={{ fontSize: 12, color: theme.textSecondary }}>{s.email}</div>
+                    </div>
+                    <button onClick={() => handleAddStaff(s.id)}
+                      style={{ ...btnBase, padding: '7px 16px', background: '#10B981', color: 'white' }}>
+                      <FaUsers /> Tambahkan
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
         </>
       )}
 
-      {/* Movement Modal */}
-      {showMovementForm && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: theme.cardBg, padding: 30, borderRadius: 16, width: 400 }}>
-            <h3 style={{ color: theme.text }}>Input Pergerakan</h3>
-            <form onSubmit={handleRecordMovement}>
-              <input type="text" placeholder="No Resi" value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} required style={{ width: '100%', padding: 12, marginBottom: 15, borderRadius: 8, background: theme.inputBg, color: theme.text }} />
-              <select value={movementType} onChange={e => {
-                setMovementType(e.target.value);
-                if (e.target.value === 'keluar' && warehouse.warehouse_type === 'pengiriman') setMovementStatus('Diserahkan ke Kurir');
-                else if (e.target.value === 'masuk') setMovementStatus('Diterima di gudang');
-              }} required style={{ width: '100%', padding: 12, marginBottom: 15, borderRadius: 8, background: theme.inputBg, color: theme.text }}>
-                <option value="">Pilih Tipe</option>
-                <option value="masuk">Masuk</option>
-                <option value="keluar">Keluar</option>
-              </select>
-              <input type="text" placeholder="Status" value={movementStatus} onChange={e => setMovementStatus(e.target.value)} required style={{ width: '100%', padding: 12, marginBottom: 15, borderRadius: 8, background: theme.inputBg, color: theme.text }} />
-              <button type="submit" style={{ width: '100%', padding: 12, backgroundColor: '#10B981', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', marginBottom: 10 }}>Simpan</button>
-              <button type="button" onClick={() => setShowMovementForm(false)} style={{ width: '100%', padding: 12, backgroundColor: '#EF4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer' }}>Batal</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* History Modal */}
-      {showHistory && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: theme.cardBg, padding: 30, borderRadius: 16, width: 600, maxHeight: '80vh', overflowY: 'auto' }}>
-            <h3 style={{ color: theme.text }}>Riwayat Pergerakan</h3>
-            {movements.map(m => (
-              <div key={m.id} style={{ padding: 15, borderBottom: `1px solid ${theme.border}`, display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ color: getMovementColor(m.movement_type), fontWeight: 'bold' }}>{m.movement_type.toUpperCase()}</div>
-                  <div style={{ color: theme.text }}>{m.tracking_number}</div>
-                  <div style={{ color: theme.textSecondary, fontSize: 12 }}>{m.status}</div>
-                </div>
-                <div style={{ color: theme.textSecondary, fontSize: 12 }}>{new Date(m.processed_at).toLocaleString()}</div>
+      {/* Movement Confirmation Modal */}
+      <AnimatePresence>
+        {showMovementModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}
+            onClick={() => setShowMovementModal(null)}>
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+              style={{ ...cardStyle, padding: 32, width: 420, maxWidth: '90%' }}
+              onClick={e => e.stopPropagation()}>
+              <h3 style={{ color: theme.text, marginTop: 0 }}>
+                {showMovementModal.type === 'masuk' ? '📥 Terima Barang' : '📤 Kirim Barang Keluar'}
+              </h3>
+              <div style={{ background: theme.bg, padding: '12px 16px', borderRadius: 10, marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, color: theme.text }}>#{showMovementModal.resi}</div>
+                <div style={{ fontSize: 13, color: '#6366F1', marginTop: 4 }}>Status: {showMovementModal.status}</div>
               </div>
-            ))}
-            <button onClick={() => setShowHistory(false)} style={{ width: '100%', padding: 12, marginTop: 20, backgroundColor: '#3B82F6', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer' }}>Tutup</button>
-          </div>
-        </div>
-      )}
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.textSecondary, marginBottom: 8 }}>Catatan (Opsional)</label>
+              <textarea value={movementNotes} onChange={e => setMovementNotes(e.target.value)}
+                placeholder="Tambahkan catatan..."
+                style={{ ...inputStyle, minHeight: 80, resize: 'vertical', fontFamily: 'inherit', marginBottom: 20 }} />
+              <div style={{ display: 'flex', gap: 12 }}>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleMovement}
+                  style={{ ...btnBase, flex: 1, padding: 12, background: '#10B981', color: 'white', justifyContent: 'center' }}>
+                  ✅ Konfirmasi
+                </motion.button>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowMovementModal(null)}
+                  style={{ ...btnBase, flex: 1, padding: 12, background: '#EF4444', color: 'white', justifyContent: 'center' }}>
+                  Batal
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

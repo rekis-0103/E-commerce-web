@@ -101,10 +101,10 @@ func Setup(app *fiber.App) {
 	// Warehouse management routes
 	warehouse.Post("/register", controllers.RegisterWarehouse)
 	warehouse.Get("/my-warehouse", controllers.GetMyWarehouse)
-	warehouse.Get("/incoming", controllers.GetIncomingShipments)
-	warehouse.Get("/stock", controllers.GetWarehouseStock)
 	warehouse.Post("/movement", controllers.RecordMovement)
 	warehouse.Get("/movements", controllers.GetWarehouseMovements)
+	warehouse.Get("/incoming", controllers.GetIncomingShipments)
+	warehouse.Get("/stock", controllers.GetWarehouseStock)
 	warehouse.Get("/staff/available", controllers.GetAvailableStaff)
 	warehouse.Post("/staff/add", controllers.AddStaffToWarehouse)
 	warehouse.Get("/all", controllers.GetAllWarehouses)
