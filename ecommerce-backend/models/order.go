@@ -10,6 +10,7 @@ type Order struct {
 	TotalAmount     float64     `json:"total_amount"`
 	Status          string      `gorm:"default:'Menunggu Pembayaran'" json:"status"` // Menunggu Pembayaran, Diproses, Dikirim, Selesai
 	ShippingAddress string      `json:"shipping_address"`
+	PaymentMethod   string      `gorm:"size:50;default:'transfer_manual'" json:"payment_method"` // transfer_manual, akane_pay
 	PaymentProof    string      `json:"payment_proof"` // URL gambar bukti transfer
 	CreatedAt       time.Time   `json:"created_at"`
 

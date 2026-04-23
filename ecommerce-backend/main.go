@@ -21,7 +21,7 @@ func main() {
 
 	config.ConnectDB()
 
-	config.DB.AutoMigrate(
+	errMigrate := config.DB.AutoMigrate(
 		&models.User{},
 		&models.Shop{},
 		&models.Product{},
@@ -35,7 +35,13 @@ func main() {
 		&models.WarehouseMovement{},
 		&models.DeliveryHub{},
 		&models.HubAssignment{},
+		&models.Wallet{},
+		&models.WalletTransaction{},
 	)
+
+	if errMigrate != nil {
+		log.Printf("Gagal melakukan migrasi database: %v", errMigrate)
+	}
 
 	app := fiber.New()
 

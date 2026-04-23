@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
 import { motion } from 'framer-motion';
-import { FaShoppingCart, FaUser, FaSignOutAlt, FaBox, FaHome, FaTruck } from 'react-icons/fa';
+import { FaShoppingCart, FaUser, FaSignOutAlt, FaBox, FaHome, FaTruck, FaWallet } from 'react-icons/fa';
 
 function Home() {
   const { theme, darkMode } = useTheme();
   const [products, setProducts] = useState([]);
   const [userName, setUserName] = useState('');
+  const [walletBalance, setWalletBalance] = useState(0);
   const navigate = useNavigate();
 
   const role = localStorage.getItem('role');
@@ -51,6 +52,13 @@ function Home() {
         const fullName = res.data.data.name || '';
         // Ambil kata pertama saja
         setUserName(fullName.split(' ')[0]);
+      }).catch(() => {});
+
+      // Ambil saldo Akane Pay
+      axios.get('http://localhost:3000/api/user/wallet', {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(res => {
+        setWalletBalance(res.data.wallet.balance || 0);
       }).catch(() => {});
     }
   }, [token]);
@@ -102,9 +110,33 @@ function Home() {
 
           {token ? (
             <>
-              <span style={{ fontSize: 15, color: theme.textSecondary, fontWeight: 500 }}>
-                Halo, {userName || (role === 'buyer' ? 'Pembeli' : role === 'seller' ? 'Penjual' : 'Admin')}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <span style={{ fontSize: 14, color: theme.textSecondary, fontWeight: 500 }}>
+                  Halo, {userName || (role === 'buyer' ? 'Pembeli' : role === 'seller' ? 'Penjual' : 'Admin')}
+                </span>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/akanepay')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                    padding: '4px 12px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    color: '#6366F1',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                    boxShadow: '0 2px 4px rgba(99, 102, 241, 0.05)'
+                  }}
+                >
+                  <FaWallet style={{ fontSize: 12 }} />
+                  Rp {walletBalance.toLocaleString('id-ID')}
+                </motion.div>
+              </div>
 
               {role === 'seller' && (
                 <motion.button

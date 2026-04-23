@@ -45,6 +45,29 @@ type Shop struct {
 	CreatedAt         time.Time  `json:"created_at"`
 }
 
+// Akane Pay: Model Dompet Digital
+type Wallet struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"uniqueIndex" json:"user_id"`
+	Balance   float64   `gorm:"default:0" json:"balance"`
+	PIN       string    `json:"-"` // Hash PIN untuk keamanan
+	IsActive  bool      `gorm:"default:false" json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type WalletTransaction struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	WalletID      uint      `json:"wallet_id"`
+	Type          string    `json:"type"`   // topup, payment, withdrawal, income, refund
+	Amount        float64   `json:"amount"`
+	Fee           float64   `json:"fee"` // Pajak/Biaya Admin
+	Status        string    `gorm:"size:20;default:'success'" json:"status"` // pending, success, failed
+	Description   string    `json:"description"`
+	TransactionID string    `gorm:"uniqueIndex;size:100" json:"transaction_id"` // Kode unik transaksi
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 type Product struct {
 	ID          uint      `gorm:"primaryKey"`
 	ShopID      uint      `json:"shop_id"`

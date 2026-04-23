@@ -21,6 +21,14 @@ func Setup(app *fiber.App) {
 	protected.Get("/profile", controllers.GetProfile)
 	protected.Put("/profile", controllers.UpdateProfile)
 	protected.Post("/shop/register", controllers.CreateShop)
+
+	// Akane Pay Routes
+	protected.Get("/wallet", controllers.GetWallet)
+	protected.Post("/wallet/setup-pin", controllers.SetupPIN)
+	protected.Post("/wallet/topup", controllers.TopUp)
+	protected.Post("/wallet/withdraw", controllers.Withdrawal)
+	protected.Post("/wallet/pay", controllers.PayWithAkanePay)
+
 	protected.Post("/cart", controllers.AddToCart)
 	protected.Get("/cart", controllers.GetMyCart)
 	protected.Put("/cart/:id", controllers.UpdateCartQuantity) 

@@ -2,36 +2,51 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTheme, DarkModeToggle } from '../context/ThemeContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // IMPORT IKON PROFESIONAL
-import { FaArrowLeft, FaBoxOpen, FaCreditCard, FaCloudUploadAlt, FaCheckCircle, FaTruck, FaClock, FaShippingFast } from 'react-icons/fa';
+import { FaArrowLeft, FaBoxOpen, FaCreditCard, FaCloudUploadAlt, FaCheckCircle, FaTruck, FaClock, FaShippingFast, FaWallet, FaShieldAlt, FaTimes } from 'react-icons/fa';
 import { MdOutlinePayment } from 'react-icons/md';
+
+const API = 'http://localhost:3000/api';
 
 function OrderHistory() {
   const { theme } = useTheme();
   const [orders, setOrders] = useState([]);
   const [shipments, setShipments] = useState({});
+  const [wallet, setWallet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState({});
   const [paymentMethods, setPaymentMethods] = useState({});
+  
+  // State PIN Modal
+  const [payOrder, setPayOrder] = useState(null);
+  const [pin, setPin] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
+  const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
     if (!token) navigate('/login');
     else {
       fetchOrders();
       fetchShipments();
+      fetchWallet();
     }
   }, [navigate, token]);
 
+  const fetchWallet = async () => {
+    try {
+      const res = await axios.get(`${API}/user/wallet`, { headers });
+      setWallet(res.data.wallet);
+    } catch (err) {}
+  };
+
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/api/user/orders', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API}/user/orders`, { headers });
       setOrders(response.data.data || []);
       setIsLoading(false);
     } catch (error) {
@@ -42,9 +57,7 @@ function OrderHistory() {
 
   const fetchShipments = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/api/buyer/shipments', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API}/buyer/shipments`, { headers });
       const shipmentMap = {};
       (response.data.data || []).forEach(s => {
         shipmentMap[s.order_id] = s;
@@ -58,14 +71,34 @@ function OrderHistory() {
   const handleConfirmReceived = async (trackingNumber) => {
     if (!window.confirm('Konfirmasi bahwa paket sudah Anda terima?')) return;
     try {
-      await axios.post(`http://localhost:3000/api/buyer/shipments/confirm/${trackingNumber}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.post(`${API}/buyer/shipments/confirm/${trackingNumber}`, {}, { headers });
       alert('✅ Terima kasih! Pesanan telah dikonfirmasi diterima.');
       fetchOrders();
       fetchShipments();
+      fetchWallet(); // Update saldo barangkali ada pengembalian
     } catch (err) {
       alert(err.response?.data?.message || 'Gagal konfirmasi penerimaan');
+    }
+  };
+
+  const handleAkanePay = async (e) => {
+    e.preventDefault();
+    if (pin.length !== 6) return;
+    setIsPaying(true);
+    try {
+      await axios.post(`${API}/user/wallet/pay`, {
+        order_id: payOrder.id,
+        pin: pin
+      }, { headers });
+      alert("✅ Pembayaran Akane Pay Berhasil!");
+      setPayOrder(null);
+      setPin('');
+      fetchOrders();
+      fetchWallet();
+    } catch (err) {
+      alert(err.response?.data?.message || "Gagal melakukan pembayaran");
+    } finally {
+      setIsPaying(false);
     }
   };
 
@@ -86,9 +119,9 @@ function OrderHistory() {
     const formData = new FormData();
     formData.append('payment_proof', file);
     try {
-      await axios.post(`http://localhost:3000/api/user/orders/${orderId}/pay`, formData, {
+      await axios.post(`${API}/user/orders/${orderId}/pay`, formData, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...headers,
           'Content-Type': 'multipart/form-data'
         }
       });
@@ -140,38 +173,10 @@ function OrderHistory() {
         </div>
 
         {orders.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            style={{
-              textAlign: 'center',
-              padding: 60,
-              backgroundColor: theme.cardBg,
-              borderRadius: 24,
-              boxShadow: theme.shadow,
-              border: `1px solid ${theme.border}`
-            }}
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: 'center', padding: 60, backgroundColor: theme.cardBg, borderRadius: 24, boxShadow: theme.shadow, border: `1px solid ${theme.border}` }}>
             <FaBoxOpen style={{ fontSize: 60, color: theme.textSecondary, marginBottom: 20 }} />
             <h3 style={{ margin: '0 0 20px 0', color: theme.textSecondary }}>Belum ada pesanan saat ini.</h3>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/home')}
-              style={{
-                padding: '12px 30px',
-                backgroundColor: theme.primary,
-                color: 'white',
-                border: 'none',
-                borderRadius: 25,
-                cursor: 'pointer',
-                fontWeight: 600,
-                display: 'inline-flex',
-                gap: 8
-              }}
-            >
-              Mulai Belanja Sekarang
-            </motion.button>
+            <button onClick={() => navigate('/home')} style={{ padding: '12px 30px', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: 25, cursor: 'pointer', fontWeight: 600 }}>Mulai Belanja Sekarang</button>
           </motion.div>
         ) : (
           <div>
@@ -180,217 +185,75 @@ function OrderHistory() {
               const selectedMethod = paymentMethods[order.id];
 
               return (
-                <motion.div
-                  key={order.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: orderIdx * 0.1 }}
-                  style={{
-                    backgroundColor: theme.cardBg,
-                    borderRadius: 20,
-                    marginBottom: 24,
-                    boxShadow: theme.shadow,
-                    overflow: 'hidden',
-                    border: `1px solid ${theme.border}`
-                  }}
-                >
+                <motion.div key={order.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: orderIdx * 0.1 }} style={{ backgroundColor: theme.cardBg, borderRadius: 20, marginBottom: 24, boxShadow: theme.shadow, overflow: 'hidden', border: `1px solid ${theme.border}` }}>
                   {/* Card Header */}
-                  <div style={{
-                    backgroundColor: theme.bg,
-                    padding: '20px 24px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderBottom: `1px solid ${theme.border}`
-                  }}>
+                  <div style={{ backgroundColor: theme.bg, padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.border}` }}>
                     <div>
-                      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>
-                        Pesanan #{order.id}
-                      </h3>
-                      <p style={{ margin: '4px 0 0 0', fontSize: 13, color: theme.textSecondary, fontWeight: 500 }}>
-                        {order.created_at}
-                      </p>
+                      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Pesanan #{order.id}</h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: 13, color: theme.textSecondary }}>{new Date(order.created_at).toLocaleString('id-ID')}</p>
                     </div>
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '6px 14px',
-                      borderRadius: 9999,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      backgroundColor: statusData.bg,
-                      color: statusData.text
-                    }}>
-                      {statusData.icon} {order.status}
-                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 700, backgroundColor: statusData.bg, color: statusData.text }}>{statusData.icon} {order.status}</div>
                   </div>
 
                   {/* Card Body */}
                   <div style={{ padding: 24 }}>
                     {order.items.map((item, index) => (
-                      <div key={index} style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        paddingBottom: index === order.items.length - 1 ? 0 : 16,
-                        marginBottom: index === order.items.length - 1 ? 0 : 16,
-                        borderBottom: index === order.items.length - 1 ? 'none' : `1px dashed ${theme.border}`
-                      }}>
-                        <div>
-                          <h4 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600, color: theme.text }}>
-                            {item.product_name}
-                          </h4>
-                          <p style={{ margin: 0, fontSize: 14, color: theme.textSecondary }}>
-                            {item.quantity} barang x Rp {item.price.toLocaleString('id-ID')}
-                          </p>
-                        </div>
-                        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: theme.text }}>
-                          Rp {(item.quantity * item.price).toLocaleString('id-ID')}
-                        </h4>
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: index === order.items.length - 1 ? 0 : 16, marginBottom: index === order.items.length - 1 ? 0 : 16, borderBottom: index === order.items.length - 1 ? 'none' : `1px dashed ${theme.border}` }}>
+                        <div><h4 style={{ margin: '0 0 4px 0', fontSize: 16, color: theme.text }}>{item.product_name}</h4><p style={{ margin: 0, fontSize: 14, color: theme.textSecondary }}>{item.quantity} barang x Rp {item.price.toLocaleString('id-ID')}</p></div>
+                        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: theme.text }}>Rp {(item.quantity * item.price).toLocaleString('id-ID')}</h4>
                       </div>
                     ))}
                   </div>
 
                   {/* Card Footer */}
-                  <div style={{
-                    backgroundColor: theme.bg,
-                    padding: 24,
-                    borderTop: `1px solid ${theme.border}`,
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 20,
-                    justifyContent: 'space-between'
-                  }}>
-                    <div style={{ flex: '1 1 300px' }}>
-                      <p style={{ margin: '0 0 6px 0', fontSize: 12, fontWeight: 700, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Dikirim Ke:
-                      </p>
-                      <p style={{ margin: 0, fontSize: 14, color: theme.text, lineHeight: 1.6 }}>
-                        {order.shipping_address}
-                      </p>
-                    </div>
-
+                  <div style={{ backgroundColor: theme.bg, padding: 24, borderTop: `1px solid ${theme.border}`, display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'space-between' }}>
+                    <div style={{ flex: '1 1 300px' }}><p style={{ margin: '0 0 6px 0', fontSize: 12, fontWeight: 700, color: theme.textSecondary }}>DIKIRIM KE:</p><p style={{ margin: 0, fontSize: 14, color: theme.text }}>{order.shipping_address}</p></div>
                     <div style={{ flex: '1 1 300px', textAlign: 'right' }}>
-                      <p style={{ margin: '0 0 4px 0', fontSize: 14, color: theme.textSecondary }}>
-                        Total Tagihan
-                      </p>
-                      <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#E11D48' }}>
-                        Rp {order.total_amount.toLocaleString('id-ID')}
-                      </h2>
+                      <p style={{ margin: '0 0 4px 0', fontSize: 14, color: theme.textSecondary }}>Total Tagihan</p>
+                      <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#E11D48' }}>Rp {order.total_amount.toLocaleString('id-ID')}</h2>
 
-                      {/* Info Resi & Tracking */}
-                      {(order.status === 'Dikirim' || order.status === 'Selesai') && shipments[order.id] && (
-                        <div style={{ marginTop: 12 }}>
-                          <p style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 4 }}>No. Resi</p>
-                          <p style={{ fontSize: 14, fontWeight: 700, color: theme.primary, marginBottom: 8 }}>
-                            {shipments[order.id].tracking_number}
-                          </p>
-                          <Link to="/tracking" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', backgroundColor: '#3B82F6', color: 'white', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>
-                            <FaShippingFast /> Lacak Paket
-                          </Link>
-                        </div>
-                      )}
-
-                      {/* Foto Bukti Pengiriman + Tombol Konfirmasi */}
-                      {shipments[order.id]?.current_status === 'Menunggu Konfirmasi Diterima' && (
-                        <div style={{ marginTop: 16, padding: 16, borderRadius: 12, border: '2px solid #F97316', background: '#FFF7ED' }}>
-                          <p style={{ fontWeight: 700, color: '#EA580C', margin: '0 0 8px', fontSize: 14 }}>📦 Paket sudah dikirim ke alamat Anda!</p>
-                          {shipments[order.id].delivery_photo_url && (
-                            <div style={{ marginBottom: 12 }}>
-                              <p style={{ fontSize: 12, color: '#92400E', marginBottom: 6 }}>📷 Foto bukti pengiriman dari kurir:</p>
-                              <img src={shipments[order.id].delivery_photo_url} alt="Bukti pengiriman"
-                                style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, border: '1px solid #FED7AA' }} />
-                            </div>
-                          )}
-                          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                            onClick={() => handleConfirmReceived(shipments[order.id].tracking_number)}
-                            style={{ width: '100%', padding: '12px', background: '#10B981', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                            <FaCheckCircle /> Paket Sudah Diterima
-                          </motion.button>
-                        </div>
-                      )}
-
-                      {shipments[order.id]?.current_status === 'Diterima' && (
-                        <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#D1FAE5', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <FaCheckCircle style={{ color: '#059669' }} />
-                          <span style={{ color: '#065F46', fontWeight: 600, fontSize: 14 }}>Paket telah dikonfirmasi diterima</span>
-                        </div>
-                      )}
-
+                      {/* Payment Options */}
                       {order.status === 'Menunggu Pembayaran' && (
-                        <div style={{
-                          marginTop: 16,
-                          backgroundColor: theme.cardBg,
-                          padding: 16,
-                          borderRadius: 12,
-                          border: `1px solid ${theme.border}`,
-                          textAlign: 'left'
-                        }}>
-                          <p style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, color: theme.text }}>
-                            Metode Pembayaran
-                          </p>
-                          <select
-                            value={selectedMethod || ''}
-                            onChange={(e) => handleMethodChange(order.id, e.target.value)}
-                            style={{
-                              width: '100%',
-                              padding: '10px 14px',
-                              borderRadius: 8,
-                              border: `1px solid ${theme.border}`,
-                              fontSize: 14,
-                              fontWeight: 600,
-                              color: theme.text,
-                              backgroundColor: theme.inputBg,
-                              marginBottom: 12,
-                              outline: 'none'
-                            }}
-                          >
+                        <div style={{ marginTop: 16, backgroundColor: theme.cardBg, padding: 16, borderRadius: 12, border: `1px solid ${theme.border}`, textAlign: 'left' }}>
+                          <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: theme.text }}>Metode Pembayaran</p>
+                          <select value={selectedMethod || ''} onChange={(e) => handleMethodChange(order.id, e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, marginBottom: 12 }}>
                             <option value="" disabled>-- Pilih Metode --</option>
+                            <option value="akane_pay">✨ Akane Pay (Saldo: Rp {wallet?.balance.toLocaleString('id-ID')})</option>
                             <option value="manual_transfer">💳 Transfer Bank (Manual)</option>
                           </select>
 
+                          {selectedMethod === 'akane_pay' && (
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                              onClick={() => {
+                                if (wallet.balance < order.total_amount) { alert("Saldo Akane Pay tidak cukup!"); return; }
+                                if (!wallet.is_active) { alert("Aktifkan Akane Pay dulu di menu dompet!"); navigate('/akanepay'); return; }
+                                setPayOrder(order);
+                              }}
+                              style={{ width: '100%', padding: 12, background: 'linear-gradient(135deg, #6366F1 0%, #A855F7 100%)', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                              <FaWallet /> Bayar Sekarang
+                            </motion.button>
+                          )}
+
                           {selectedMethod === 'manual_transfer' && (
-                            <div style={{
-                              borderTop: `1px solid ${theme.border}`,
-                              paddingTop: 12,
-                              marginTop: 4
-                            }}>
-                              <p style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 8 }}>
-                                Silakan Upload Bukti Transfer:
-                              </p>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleFileChange(order.id, e)}
-                                style={{ display: 'block', width: '100%', fontSize: 13, color: theme.textSecondary, marginBottom: 12 }}
-                              />
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => handleUploadProof(order.id)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: 8,
-                                  width: '100%',
-                                  padding: 12,
-                                  backgroundColor: '#10B981',
-                                  color: '#FFF',
-                                  border: 'none',
-                                  borderRadius: 8,
-                                  fontSize: 15,
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
-                                }}
-                              >
-                                <FaCloudUploadAlt style={{ fontSize: 18 }} /> Kirim Bukti Pembayaran
-                              </motion.button>
+                            <div>
+                              <input type="file" accept="image/*" onChange={(e) => handleFileChange(order.id, e)} style={{ width: '100%', fontSize: 13, marginBottom: 12 }} />
+                              <button onClick={() => handleUploadProof(order.id)} style={{ width: '100%', padding: 12, background: '#10B981', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700 }}><FaCloudUploadAlt /> Kirim Bukti</button>
                             </div>
                           )}
                         </div>
+                      )}
+
+                      {/* Info Resi */}
+                      {(order.status === 'Dikirim' || order.status === 'Selesai' || order.status === 'Menunggu Konfirmasi Diterima' || order.status === 'Diterima') && shipments[order.id] && (
+                        <div style={{ marginTop: 12 }}>
+                          <p style={{ fontSize: 12, color: theme.textSecondary }}>No. Resi: <strong style={{ color: theme.primary }}>{shipments[order.id].tracking_number}</strong></p>
+                          <Link to="/tracking" style={{ fontSize: 12, color: '#3B82F6', fontWeight: 700 }}>Lacak Paket</Link>
+                        </div>
+                      )}
+
+                      {/* Konfirmasi Terima */}
+                      {shipments[order.id]?.current_status === 'Menunggu Konfirmasi Diterima' && (
+                        <button onClick={() => handleConfirmReceived(shipments[order.id].tracking_number)} style={{ marginTop: 16, width: '100%', padding: '12px', background: '#10B981', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700 }}>Konfirmasi Terima Paket</button>
                       )}
                     </div>
                   </div>
@@ -400,6 +263,26 @@ function OrderHistory() {
           </div>
         )}
       </div>
+
+      {/* MODAL PIN AKANE PAY */}
+      <AnimatePresence>
+        {payOrder && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: 20 }}>
+            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 24, width: '100%', maxWidth: 400, textAlign: 'center' }}>
+               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -10 }}>
+                  <button onClick={() => setPayOrder(null)} style={{ background: 'none', border: 'none', color: theme.textSecondary }}><FaTimes /></button>
+               </div>
+               <FaShieldAlt style={{ fontSize: 48, color: '#6366F1', marginBottom: 16 }} />
+               <h3 style={{ color: theme.text, margin: 0 }}>Konfirmasi Pembayaran</h3>
+               <p style={{ color: theme.textSecondary, fontSize: 14 }}>Membayar Pesanan #{payOrder.id} sebesar <strong>Rp {payOrder.total_amount.toLocaleString('id-ID')}</strong></p>
+               <form onSubmit={handleAkanePay} style={{ marginTop: 24 }}>
+                  <input type="password" maxLength="6" value={pin} onChange={e => setPin(e.target.value.replace(/[^0-9]/g, ''))} placeholder="PIN 6 Digit" style={{ width: '100%', padding: 16, borderRadius: 12, border: `2px solid ${theme.border}`, background: theme.inputBg, color: theme.text, textAlign: 'center', fontSize: 24, letterSpacing: 8, marginBottom: 24 }} required />
+                  <button type="submit" disabled={isPaying} style={{ width: '100%', padding: 16, background: theme.gradient, color: 'white', border: 'none', borderRadius: 12, fontWeight: 700 }}>{isPaying ? "Memproses..." : "Konfirmasi & Bayar"}</button>
+               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

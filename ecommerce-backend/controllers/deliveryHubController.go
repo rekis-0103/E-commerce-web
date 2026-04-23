@@ -566,6 +566,40 @@ func ConfirmPackageReceived(c *fiber.Ctx) error {
 	// Update hub assignment jadi selesai
 	tx.Model(&models.HubAssignment{}).Where("shipment_id = ?", shipment.ID).Update("status", "selesai")
 
+	// --- AKANE PAY: TRANSFER KE PENJUAL ---
+	var shop models.Shop
+	if err := config.DB.First(&shop, order.ShopID).Error; err == nil {
+		// Hitung biaya layanan (misal 2.5%)
+		serviceFeeRate := 0.025
+		serviceFee := order.TotalAmount * serviceFeeRate
+		netAmount := order.TotalAmount - serviceFee
+
+		// Cari wallet penjual
+		var sellerWallet models.Wallet
+		if err := tx.Where("user_id = ?", shop.UserID).First(&sellerWallet).Error; err != nil {
+			// Jika belum punya wallet, buatkan
+			sellerWallet = models.Wallet{UserID: shop.UserID, Balance: 0, IsActive: true}
+			tx.Create(&sellerWallet)
+		}
+
+		// Tambahkan saldo
+		sellerWallet.Balance += netAmount
+		tx.Save(&sellerWallet)
+
+		// Catat Transaksi Pendapatan
+		incomeTx := models.WalletTransaction{
+			WalletID:      sellerWallet.ID,
+			Type:          "income",
+			Amount:        netAmount,
+			Fee:           serviceFee,
+			Description:   fmt.Sprintf("Pendapatan Pesanan #%d", order.ID),
+			TransactionID: fmt.Sprintf("INC-%d", time.Now().Unix()),
+			Status:        "success",
+		}
+		tx.Create(&incomeTx)
+	}
+	// ---------------------------------------
+
 	// Buat ShipmentLog
 	log := models.ShipmentLog{
 		ShipmentID:    shipment.ID,
@@ -577,10 +611,9 @@ func ConfirmPackageReceived(c *fiber.Ctx) error {
 	}
 	if err := tx.Create(&log).Error; err != nil {
 		tx.Rollback()
-		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat log"})
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat log shipment"})
 	}
 
 	tx.Commit()
-
-	return c.JSON(fiber.Map{"message": "Terima kasih! Pesanan telah dikonfirmasi diterima."})
+	return c.JSON(fiber.Map{"message": "Konfirmasi berhasil! Pesanan telah selesai."})
 }

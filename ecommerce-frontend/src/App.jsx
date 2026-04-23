@@ -19,6 +19,7 @@ import AdminShopManagement from './pages/AdminShopManagement';
 import AdminWarehouseManagement from './pages/AdminWarehouseManagement';
 import AdminCourierManagement from './pages/AdminCourierManagement';
 import SellerRegistration from './pages/SellerRegistration';
+import AkanePay from './pages/AkanePay';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
           <Route path="/shipment-management" element={<ShipmentManagement />} />
           <Route path="/warehouse-management" element={<WarehouseManagement />} />
           <Route path="/delivery-hub" element={<DeliveryHubManagement />} />
+          <Route path="/akanepay" element={<AkanePay />} />
           
           {/* Seller Registration for Buyers */}
           <Route path="/seller-registration" element={<SellerRegistration />} />
