@@ -438,3 +438,149 @@ func GetCourierDeliveryHistory(c *fiber.Ctx) error {
 		"data":    assignments,
 	})
 }
+
+// UploadDeliveryProof - Kurir upload foto bukti pengiriman & tandai sudah dikirim ke alamat
+func UploadDeliveryProof(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+	userRole := c.Locals("role").(string)
+	assignmentID := c.Params("id")
+
+	var assignment models.HubAssignment
+	if err := config.DB.Preload("Hub").Preload("Shipment").First(&assignment, assignmentID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Assignment tidak ditemukan"})
+	}
+
+	// Validasi: kurir harus dari hub yang sama
+	var hub models.DeliveryHub
+	if err := config.DB.Where("assigned_courier_id = ? AND id = ?", userID, assignment.HubID).First(&hub).Error; err != nil {
+		return c.Status(403).JSON(fiber.Map{"message": "Akses ditolak. Bukan hub Anda"})
+	}
+
+	if assignment.Status != "diambil" && assignment.Status != "dikirim" {
+		return c.Status(400).JSON(fiber.Map{"message": "Status paket tidak memungkinkan upload bukti"})
+	}
+
+	// Handle file upload
+	file, err := c.FormFile("photo")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "File foto wajib diunggah"})
+	}
+
+	// Simpan file
+	filename := fmt.Sprintf("delivery_%s_%d_%s", assignment.TrackingNumber, userID, file.Filename)
+	savePath := fmt.Sprintf("./uploads/delivery/%s", filename)
+	if err := c.SaveFile(file, savePath); err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menyimpan foto"})
+	}
+
+	photoURL := fmt.Sprintf("http://localhost:3000/uploads/delivery/%s", filename)
+	notes := c.FormValue("notes", "")
+
+	tx := config.DB.Begin()
+
+	// Update assignment
+	now := time.Now()
+	assignment.Status = "menunggu_konfirmasi"
+	assignment.DeliveryPhotoURL = photoURL
+	assignment.DeliveredAt = &now
+
+	if err := tx.Save(&assignment).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal update assignment"})
+	}
+
+	// Update shipment
+	assignment.Shipment.CurrentStatus = "Menunggu Konfirmasi Diterima"
+	assignment.Shipment.CurrentLocation = "Terkirim ke Alamat Tujuan"
+	assignment.Shipment.DeliveryPhotoURL = photoURL
+	assignment.Shipment.DeliveredAt = &now
+
+	if err := tx.Save(&assignment.Shipment).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal update shipment"})
+	}
+
+	// Buat ShipmentLog
+	log := models.ShipmentLog{
+		ShipmentID:    assignment.Shipment.ID,
+		Status:        "Terkirim - Menunggu Konfirmasi Penerima",
+		Location:      assignment.Shipment.ShippingAddress,
+		Notes:         fmt.Sprintf("[Bukti Foto] %s", notes),
+		UpdatedBy:     userID,
+		UpdatedByRole: userRole,
+	}
+	if err := tx.Create(&log).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat log shipment"})
+	}
+
+	tx.Commit()
+
+	return c.JSON(fiber.Map{
+		"message":   "Bukti pengiriman berhasil diunggah. Menunggu konfirmasi penerima.",
+		"photo_url": photoURL,
+	})
+}
+
+// ConfirmPackageReceived - Buyer mengkonfirmasi paket sudah diterima
+func ConfirmPackageReceived(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+	trackingNumber := c.Params("tracking_number")
+
+	// Cari shipment berdasarkan resi
+	var shipment models.Shipment
+	if err := config.DB.Where("tracking_number = ?", trackingNumber).First(&shipment).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Nomor resi tidak ditemukan"})
+	}
+
+	// Validasi: pastikan ini memang order milik buyer ini
+	var order models.Order
+	if err := config.DB.First(&order, shipment.OrderID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Order tidak ditemukan"})
+	}
+	if order.BuyerID != userID {
+		return c.Status(403).JSON(fiber.Map{"message": "Akses ditolak"})
+	}
+
+	if shipment.CurrentStatus != "Menunggu Konfirmasi Diterima" {
+		return c.Status(400).JSON(fiber.Map{"message": "Status paket tidak memungkinkan konfirmasi"})
+	}
+
+	tx := config.DB.Begin()
+
+	now := time.Now()
+	shipment.CurrentStatus = "Diterima"
+	shipment.ReceivedAt = &now
+
+	if err := tx.Save(&shipment).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal konfirmasi penerimaan"})
+	}
+
+	// Update order status jadi Selesai
+	if err := tx.Model(&models.Order{}).Where("id = ?", order.ID).Update("status", "Selesai").Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal update status pesanan"})
+	}
+
+	// Update hub assignment jadi selesai
+	tx.Model(&models.HubAssignment{}).Where("shipment_id = ?", shipment.ID).Update("status", "selesai")
+
+	// Buat ShipmentLog
+	log := models.ShipmentLog{
+		ShipmentID:    shipment.ID,
+		Status:        "Paket Diterima oleh Pembeli",
+		Location:      shipment.ShippingAddress,
+		Notes:         "Pembeli telah mengkonfirmasi penerimaan paket",
+		UpdatedBy:     userID,
+		UpdatedByRole: "buyer",
+	}
+	if err := tx.Create(&log).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat log"})
+	}
+
+	tx.Commit()
+
+	return c.JSON(fiber.Map{"message": "Terima kasih! Pesanan telah dikonfirmasi diterima."})
+}

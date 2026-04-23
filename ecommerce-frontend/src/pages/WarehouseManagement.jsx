@@ -20,10 +20,13 @@ function WarehouseManagement() {
   const [warehouseStock, setWarehouseStock] = useState([]);
   const [availableStaff, setAvailableStaff] = useState([]);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
-  const [showMovementModal, setShowMovementModal] = useState(null); // { resi, type, status }
+  const [showMovementModal, setShowMovementModal] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [movementNotes, setMovementNotes] = useState('');
+  const [manualResi, setManualResi] = useState('');
+  const [manualResiError, setManualResiError] = useState('');
+  const [isCheckingResi, setIsCheckingResi] = useState(false);
 
   const [warehouseName, setWarehouseName] = useState('');
   const [warehouseCode, setWarehouseCode] = useState('');
@@ -107,7 +110,26 @@ function WarehouseManagement() {
     } catch (err) { alert(err.response?.data?.message || 'Gagal menambahkan staf'); }
   };
 
+  const handleManualResi = async (type) => {
+    const resi = manualResi.trim().toUpperCase();
+    if (!resi) { setManualResiError('Nomor resi tidak boleh kosong'); return; }
+    setManualResiError('');
+    setIsCheckingResi(true);
+    try {
+      // Validasi resi lewat endpoint tracking publik
+      await axios.get(`${API}/tracking/${resi}`);
+      const status = type === 'masuk' ? 'Diterima di Gudang'
+        : warehouse?.warehouse_type === 'pengiriman' ? 'Diserahkan ke Kurir' : 'Keluar untuk Sortir';
+      setShowMovementModal({ resi, type, status });
+      setManualResi('');
+    } catch (err) {
+      if (err.response?.status === 404) setManualResiError('❌ Nomor resi tidak ditemukan di sistem');
+      else setManualResiError('Gagal memvalidasi resi, coba lagi');
+    } finally { setIsCheckingResi(false); }
+  };
+
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
+
 
   const cardStyle = { backgroundColor: theme.cardBg, borderRadius: 16, border: `1px solid ${theme.border}`, boxShadow: theme.shadow };
   const btnBase = { border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 };
@@ -212,10 +234,34 @@ function WarehouseManagement() {
           {/* Tab: Incoming */}
           {activeTab === 'incoming' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {/* Manual Resi Input */}
+              <div style={{ ...cardStyle, padding: 24, marginBottom: 20, borderLeft: '4px solid #F59E0B' }}>
+                <h4 style={{ color: theme.text, margin: '0 0 12px', fontSize: 15 }}>📥 Input Resi Manual</h4>
+                <p style={{ color: theme.textSecondary, fontSize: 13, margin: '0 0 12px' }}>
+                  Gunakan ini jika paket sudah tiba fisik namun belum muncul di daftar otomatis.
+                </p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <input value={manualResi} onChange={e => { setManualResi(e.target.value.toUpperCase()); setManualResiError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && handleManualResi('masuk')}
+                    placeholder="Ketik / scan nomor resi..." style={{ ...inputStyle, flex: 1 }} />
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                    onClick={() => handleManualResi('masuk')} disabled={isCheckingResi}
+                    style={{ ...btnBase, padding: '10px 20px', background: '#F59E0B', color: 'white', whiteSpace: 'nowrap', opacity: isCheckingResi ? 0.7 : 1 }}>
+                    {isCheckingResi ? '⏳' : <FaCheckCircle />} Terima
+                  </motion.button>
+                </div>
+                {manualResiError && <p style={{ color: '#EF4444', fontSize: 13, margin: '8px 0 0' }}>{manualResiError}</p>}
+              </div>
+
+              {/* Auto-detected list */}
+              <h4 style={{ color: theme.textSecondary, fontSize: 13, margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1 }}>
+                Terdeteksi Otomatis ({incomingShipments.length})
+              </h4>
               {incomingShipments.length === 0 ? (
-                <div style={{ ...cardStyle, padding: 60, textAlign: 'center' }}>
-                  <FaBoxOpen style={{ fontSize: 48, color: theme.textSecondary, marginBottom: 16 }} />
+                <div style={{ ...cardStyle, padding: 40, textAlign: 'center' }}>
+                  <FaBoxOpen style={{ fontSize: 40, color: theme.textSecondary, marginBottom: 12 }} />
                   <p style={{ color: theme.textSecondary }}>Tidak ada barang yang akan masuk</p>
+
                 </div>
               ) : incomingShipments.map((s, i) => (
                 <motion.div key={s.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
@@ -238,12 +284,36 @@ function WarehouseManagement() {
           {/* Tab: Stock */}
           {activeTab === 'stock' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {/* Manual Resi Keluar */}
+              {warehouse?.warehouse_type === 'pengiriman' && (
+                <div style={{ ...cardStyle, padding: 24, marginBottom: 20, borderLeft: '4px solid #8B5CF6' }}>
+                  <h4 style={{ color: theme.text, margin: '0 0 12px', fontSize: 15 }}>📤 Input Resi Keluar Manual</h4>
+                  <p style={{ color: theme.textSecondary, fontSize: 13, margin: '0 0 12px' }}>
+                    Gunakan ini untuk mencatat barang keluar yang tidak ada di daftar stok.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <input value={manualResi} onChange={e => { setManualResi(e.target.value.toUpperCase()); setManualResiError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleManualResi('keluar')}
+                      placeholder="Ketik / scan nomor resi..." style={{ ...inputStyle, flex: 1 }} />
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                      onClick={() => handleManualResi('keluar')} disabled={isCheckingResi}
+                      style={{ ...btnBase, padding: '10px 20px', background: '#8B5CF6', color: 'white', whiteSpace: 'nowrap', opacity: isCheckingResi ? 0.7 : 1 }}>
+                      {isCheckingResi ? '⏳' : <FaTruck />} Serahkan ke Kurir
+                    </motion.button>
+                  </div>
+                  {manualResiError && <p style={{ color: '#EF4444', fontSize: 13, margin: '8px 0 0' }}>{manualResiError}</p>}
+                </div>
+              )}
+              <h4 style={{ color: theme.textSecondary, fontSize: 13, margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 1 }}>
+                Barang di Gudang Saat Ini ({warehouseStock.length})
+              </h4>
               {warehouseStock.length === 0 ? (
-                <div style={{ ...cardStyle, padding: 60, textAlign: 'center' }}>
-                  <FaBox style={{ fontSize: 48, color: theme.textSecondary, marginBottom: 16 }} />
+                <div style={{ ...cardStyle, padding: 40, textAlign: 'center' }}>
+                  <FaBox style={{ fontSize: 40, color: theme.textSecondary, marginBottom: 12 }} />
                   <p style={{ color: theme.textSecondary }}>Gudang kosong</p>
                 </div>
               ) : warehouseStock.map((s, i) => (
+
                 <motion.div key={s.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
                   style={{ ...cardStyle, padding: '16px 24px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>

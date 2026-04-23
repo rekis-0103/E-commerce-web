@@ -30,8 +30,11 @@ function DeliveryHubManagement() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [showActionModal, setShowActionModal] = useState(false);
+  const [showProofModal, setShowProofModal] = useState(null); // assignment object
   const [deliveryLocation, setDeliveryLocation] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [proofPhoto, setProofPhoto] = useState(null);
+  const [proofNotes, setProofNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}` };
@@ -95,6 +98,26 @@ function DeliveryHubManagement() {
     finally { setIsSubmitting(false); }
   };
 
+  const handleUploadProof = async () => {
+    if (!showProofModal) return;
+    if (!proofPhoto) { alert('Pilih foto bukti pengiriman!'); return; }
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', proofPhoto);
+      formData.append('notes', proofNotes);
+      await axios.post(`${API}/courier/hub/proof/${showProofModal.ID}`, formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+      });
+      alert('✅ Bukti pengiriman berhasil diunggah! Menunggu konfirmasi pembeli.');
+      setShowProofModal(null);
+      setProofPhoto(null);
+      setProofNotes('');
+      fetchAssignments(true);
+    } catch (err) { alert(err.response?.data?.message || 'Gagal upload foto'); }
+    finally { setIsSubmitting(false); }
+  };
+
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
 
   // Stats
@@ -110,6 +133,7 @@ function DeliveryHubManagement() {
       menunggu: { color: '#F59E0B', label: 'Menunggu Diambil' },
       diambil: { color: '#3B82F6', label: 'Sudah Diambil' },
       dikirim: { color: '#8B5CF6', label: 'Sedang Dikirim' },
+      menunggu_konfirmasi: { color: '#F97316', label: 'Menunggu Konfirmasi Pembeli' },
       selesai: { color: '#10B981', label: 'Selesai' },
     };
     return map[status] || { color: '#6B7280', label: status };
@@ -241,17 +265,30 @@ function DeliveryHubManagement() {
                       </motion.button>
                     )}
                     {(a.status === 'diambil' || a.status === 'dikirim') && (
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={() => { setSelectedAssignment(a); setShowActionModal(true); }}
-                        style={{ ...btnBase, padding: '10px 18px', background: '#6366F1', color: 'white', fontSize: 14 }}>
-                        <FaTruck /> Update Status
-                      </motion.button>
+                      <>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                          onClick={() => { setSelectedAssignment(a); setShowActionModal(true); }}
+                          style={{ ...btnBase, padding: '10px 18px', background: '#6366F1', color: 'white', fontSize: 14 }}>
+                          <FaTruck /> Update Status
+                        </motion.button>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                          onClick={() => setShowProofModal(a)}
+                          style={{ ...btnBase, padding: '10px 18px', background: '#10B981', color: 'white', fontSize: 14 }}>
+                          📷 Sudah Terkirim
+                        </motion.button>
+                      </>
+                    )}
+                    {a.status === 'menunggu_konfirmasi' && (
+                      <span style={{ padding: '10px 18px', background: '#F9731622', color: '#F97316', borderRadius: 8, fontWeight: 700, fontSize: 13 }}>
+                        ⏳ Menunggu Konfirmasi Pembeli
+                      </span>
                     )}
                     {a.status === 'selesai' && (
                       <span style={{ padding: '10px 18px', background: '#10B98122', color: '#10B981', borderRadius: 8, fontWeight: 700, fontSize: 14 }}>
                         <FaCheck style={{ marginRight: 6 }} /> Selesai
                       </span>
                     )}
+
                   </div>
                 </div>
               </motion.div>
@@ -369,9 +406,67 @@ function DeliveryHubManagement() {
         )}
       </AnimatePresence>
 
+      {/* Photo Proof Upload Modal */}
+      <AnimatePresence>
+        {showProofModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1001 }}
+            onClick={() => setShowProofModal(null)}>
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+              style={{ backgroundColor: theme.cardBg, borderRadius: 20, padding: 32, width: 460, maxWidth: '92%', boxShadow: theme.shadow }}
+              onClick={e => e.stopPropagation()}>
+              <h3 style={{ color: theme.text, marginTop: 0, fontSize: 20 }}>📷 Upload Bukti Pengiriman</h3>
+              <div style={{ background: theme.bg, padding: '12px 16px', borderRadius: 10, marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, color: theme.text }}>#{showProofModal.tracking_number}</div>
+                <div style={{ color: theme.textSecondary, fontSize: 13, marginTop: 4 }}>
+                  📍 {showProofModal.Shipment?.shipping_address || '-'}
+                </div>
+              </div>
+              <label style={{ display: 'block', fontWeight: 600, color: theme.text, marginBottom: 8, fontSize: 14 }}>
+                Foto Bukti Pengiriman *
+              </label>
+              <div style={{ border: `2px dashed ${theme.border}`, borderRadius: 12, padding: 20, textAlign: 'center', marginBottom: 16, background: theme.bg }}>
+                <input type="file" accept="image/*" id="proof-upload" style={{ display: 'none' }}
+                  onChange={e => setProofPhoto(e.target.files[0])} />
+                <label htmlFor="proof-upload" style={{ cursor: 'pointer' }}>
+                  {proofPhoto ? (
+                    <div>
+                      <img src={URL.createObjectURL(proofPhoto)} alt="preview"
+                        style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, objectFit: 'cover' }} />
+                      <p style={{ color: '#10B981', fontSize: 13, marginTop: 8 }}>✅ {proofPhoto.name}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 36, marginBottom: 8 }}>📷</div>
+                      <p style={{ color: theme.textSecondary, fontSize: 14 }}>Klik untuk pilih foto</p>
+                    </div>
+                  )}
+                </label>
+              </div>
+              <label style={{ display: 'block', fontWeight: 600, color: theme.text, marginBottom: 8, fontSize: 14 }}>Catatan (Opsional)</label>
+              <textarea value={proofNotes} onChange={e => setProofNotes(e.target.value)}
+                placeholder="Misal: paket diterima oleh pihak keluarga..."
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: 14, minHeight: 70, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', marginBottom: 20 }} />
+              <div style={{ display: 'flex', gap: 12 }}>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleUploadProof}
+                  disabled={isSubmitting || !proofPhoto}
+                  style={{ flex: 1, padding: 13, background: proofPhoto ? '#10B981' : '#ccc', color: 'white', border: 'none', borderRadius: 8, cursor: proofPhoto ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: 15, opacity: isSubmitting ? 0.7 : 1 }}>
+                  {isSubmitting ? 'Mengunggah...' : '✅ Kirim Bukti'}
+                </motion.button>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => { setShowProofModal(null); setProofPhoto(null); }}
+                  style={{ flex: 1, padding: 13, background: '#EF4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 15 }}>
+                  Batal
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
 
 export default DeliveryHubManagement;

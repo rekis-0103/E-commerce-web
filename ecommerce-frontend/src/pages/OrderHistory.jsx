@@ -55,6 +55,20 @@ function OrderHistory() {
     }
   };
 
+  const handleConfirmReceived = async (trackingNumber) => {
+    if (!window.confirm('Konfirmasi bahwa paket sudah Anda terima?')) return;
+    try {
+      await axios.post(`http://localhost:3000/api/buyer/shipments/confirm/${trackingNumber}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('✅ Terima kasih! Pesanan telah dikonfirmasi diterima.');
+      fetchOrders();
+      fetchShipments();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Gagal konfirmasi penerimaan');
+    }
+  };
+
   const handleMethodChange = (orderId, method) => {
     setPaymentMethods({ ...paymentMethods, [orderId]: method });
   };
@@ -92,6 +106,8 @@ function OrderHistory() {
       case 'Diproses': return { bg: '#E0E7FF', text: '#4F46E5', icon: <FaBoxOpen /> };
       case 'Dikirim': return { bg: '#D1FAE5', text: '#059669', icon: <FaTruck /> };
       case 'Selesai': return { bg: '#DCFCE7', text: '#16A34A', icon: <FaCheckCircle /> };
+      case 'Menunggu Konfirmasi Diterima': return { bg: '#FFF7ED', text: '#EA580C', icon: <FaTruck /> };
+      case 'Diterima': return { bg: '#D1FAE5', text: '#059669', icon: <FaCheckCircle /> };
       default: return { bg: theme.bg, text: theme.textSecondary, icon: null };
     }
   };
@@ -264,31 +280,41 @@ function OrderHistory() {
                       </h2>
 
                       {/* Info Resi & Tracking */}
-                      {order.status === 'Dikirim' && shipments[order.id] && (
+                      {(order.status === 'Dikirim' || order.status === 'Selesai') && shipments[order.id] && (
                         <div style={{ marginTop: 12 }}>
-                          <p style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 4 }}>
-                            No. Resi
-                          </p>
+                          <p style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 4 }}>No. Resi</p>
                           <p style={{ fontSize: 14, fontWeight: 700, color: theme.primary, marginBottom: 8 }}>
                             {shipments[order.id].tracking_number}
                           </p>
-                          <Link
-                            to="/tracking"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '8px 16px',
-                              backgroundColor: '#3B82F6',
-                              color: 'white',
-                              borderRadius: 8,
-                              textDecoration: 'none',
-                              fontWeight: 600,
-                              fontSize: 13
-                            }}
-                          >
+                          <Link to="/tracking" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', backgroundColor: '#3B82F6', color: 'white', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>
                             <FaShippingFast /> Lacak Paket
                           </Link>
+                        </div>
+                      )}
+
+                      {/* Foto Bukti Pengiriman + Tombol Konfirmasi */}
+                      {shipments[order.id]?.current_status === 'Menunggu Konfirmasi Diterima' && (
+                        <div style={{ marginTop: 16, padding: 16, borderRadius: 12, border: '2px solid #F97316', background: '#FFF7ED' }}>
+                          <p style={{ fontWeight: 700, color: '#EA580C', margin: '0 0 8px', fontSize: 14 }}>📦 Paket sudah dikirim ke alamat Anda!</p>
+                          {shipments[order.id].delivery_photo_url && (
+                            <div style={{ marginBottom: 12 }}>
+                              <p style={{ fontSize: 12, color: '#92400E', marginBottom: 6 }}>📷 Foto bukti pengiriman dari kurir:</p>
+                              <img src={shipments[order.id].delivery_photo_url} alt="Bukti pengiriman"
+                                style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, border: '1px solid #FED7AA' }} />
+                            </div>
+                          )}
+                          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                            onClick={() => handleConfirmReceived(shipments[order.id].tracking_number)}
+                            style={{ width: '100%', padding: '12px', background: '#10B981', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            <FaCheckCircle /> Paket Sudah Diterima
+                          </motion.button>
+                        </div>
+                      )}
+
+                      {shipments[order.id]?.current_status === 'Diterima' && (
+                        <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#D1FAE5', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <FaCheckCircle style={{ color: '#059669' }} />
+                          <span style={{ color: '#065F46', fontWeight: 600, fontSize: 14 }}>Paket telah dikonfirmasi diterima</span>
                         </div>
                       )}
 

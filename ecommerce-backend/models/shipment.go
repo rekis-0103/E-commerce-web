@@ -38,17 +38,19 @@ type WarehouseMovement struct {
 
 // Shipment mewakili data pengiriman untuk satu order
 type Shipment struct {
-	ID              uint       `gorm:"primaryKey" json:"id"`
-	OrderID         uint       `gorm:"uniqueIndex" json:"order_id"`
-	TrackingNumber  string     `gorm:"uniqueIndex;size:50" json:"tracking_number"` // Nomor resi unik
-	CourierName     string     `json:"courier_name"`                               // Nama kurir/jasa ekspedisi
-	CurrentStatus   string     `gorm:"default:'Dikirim'" json:"current_status"`    // Status terkini: Dikirim, Dalam Perjalanan, Sampai
-	CurrentLocation string     `json:"current_location"`                           // Lokasi terakhir paket
-	ShippingAddress string     `json:"shipping_address"`                           // Alamat tujuan (salinan dari order)
-	EstimatedDays   int        `json:"estimated_days"`                             // Estimasi hari sampai
-	DeliveredAt     *time.Time `json:"delivered_at"`                               // Waktu pengiriman diterima (nullable)
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID               uint       `gorm:"primaryKey" json:"id"`
+	OrderID          uint       `gorm:"uniqueIndex" json:"order_id"`
+	TrackingNumber   string     `gorm:"uniqueIndex;size:50" json:"tracking_number"`
+	CourierName      string     `json:"courier_name"`
+	CurrentStatus    string     `gorm:"default:'Dikirim'" json:"current_status"` // Dikirim, Dalam Perjalanan, Sampai, Menunggu Konfirmasi Diterima, Diterima
+	CurrentLocation  string     `json:"current_location"`
+	ShippingAddress  string     `json:"shipping_address"`
+	EstimatedDays    int        `json:"estimated_days"`
+	DeliveryPhotoURL string     `json:"delivery_photo_url"` // URL foto bukti pengiriman dari kurir
+	DeliveredAt      *time.Time `json:"delivered_at"`
+	ReceivedAt       *time.Time `json:"received_at"` // Waktu buyer konfirmasi paket diterima
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 
 	// Relasi
 	Order Order         `json:"order,omitempty"`
@@ -87,19 +89,20 @@ type DeliveryHub struct {
 
 // HubAssignment mencatat penugasan paket ke delivery hub untuk kurir
 type HubAssignment struct {
-	ID              uint       `gorm:"primaryKey" json:"id"`
-	HubID           uint       `gorm:"not null" json:"hub_id"`
-	ShipmentID      uint       `gorm:"not null" json:"shipment_id"`
-	TrackingNumber  string     `gorm:"size:50;not null" json:"tracking_number"` // Nomor resi yang ditugaskan
-	Status          string     `gorm:"type:enum('menunggu','diambil','dikirim','selesai');default:'menunggu'" json:"status"` // Status di hub
-	AssignedBy      uint       `json:"assigned_by"`                              // User ID yang menugaskan (admin/seller)
-	AssignedAt      time.Time  `gorm:"not null" json:"assigned_at"`              // Waktu penugasan
-	PickedUpBy      uint       `json:"picked_up_by"`                             // User ID kurir yang mengambil
-	PickedUpAt      *time.Time `json:"picked_up_at"`                             // Waktu pengambilan
-	DeliveredAt     *time.Time `json:"delivered_at"`                             // Waktu pengiriman selesai
-	Notes           string     `json:"notes"`                                    // Catatan tambahan
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID               uint       `gorm:"primaryKey" json:"id"`
+	HubID            uint       `gorm:"not null" json:"hub_id"`
+	ShipmentID       uint       `gorm:"not null" json:"shipment_id"`
+	TrackingNumber   string     `gorm:"size:50;not null" json:"tracking_number"`
+	Status           string     `gorm:"type:enum('menunggu','diambil','dikirim','menunggu_konfirmasi','selesai');default:'menunggu'" json:"status"`
+	DeliveryPhotoURL string     `json:"delivery_photo_url"` // URL foto bukti pengiriman
+	AssignedBy       uint       `json:"assigned_by"`
+	AssignedAt       time.Time  `gorm:"not null" json:"assigned_at"`
+	PickedUpBy       uint       `json:"picked_up_by"`
+	PickedUpAt       *time.Time `json:"picked_up_at"`
+	DeliveredAt      *time.Time `json:"delivered_at"`
+	Notes            string     `json:"notes"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 
 	// Relasi
 	Hub      DeliveryHub `gorm:"foreignKey:HubID" json:"hub,omitempty"`

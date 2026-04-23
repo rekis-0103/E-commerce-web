@@ -81,6 +81,7 @@ func Setup(app *fiber.App) {
 		return c.Next()
 	})
 	buyer.Get("/shipments", controllers.GetMyShipmentOrders)
+	buyer.Post("/shipments/confirm/:tracking_number", controllers.ConfirmPackageReceived) // Konfirmasi paket diterima
 
 	// Courier routes
 	courier := api.Group("/courier", middleware.Protected, middleware.IsCourier)
@@ -91,6 +92,7 @@ func Setup(app *fiber.App) {
 	courier.Get("/hub/assignments", controllers.GetMyHubAssignments)
 	courier.Put("/hub/pickup/:id", controllers.PickupShipment)
 	courier.Put("/hub/delivery/:id", controllers.UpdateDeliveryStatus)
+	courier.Post("/hub/proof/:id", controllers.UploadDeliveryProof)  // Upload foto bukti kirim
 	courier.Get("/hub/history", controllers.GetCourierDeliveryHistory)
 
 	// Warehouse staff routes
