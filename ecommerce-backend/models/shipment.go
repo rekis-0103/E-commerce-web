@@ -9,6 +9,10 @@ type Warehouse struct {
 	Code          string    `gorm:"uniqueIndex;size:20;not null" json:"code"`    // Kode unik gudang
 	Address       string    `json:"address"`                                      // Alamat lengkap
 	Province      string    `gorm:"size:100;not null" json:"province"`           // Provinsi di Indonesia
+	City          string    `gorm:"size:100;not null" json:"city"`               // Kota/Kabupaten
+	District      string    `gorm:"size:100;not null" json:"district"`           // Kecamatan
+	Village       string    `gorm:"size:100;not null" json:"village"`            // Kelurahan
+	PostalCode    string    `gorm:"size:20" json:"postal_code"`                  // Kode Pos
 	WarehouseType string    `gorm:"type:enum('sortir', 'pengiriman');not null;default:'pengiriman'" json:"warehouse_type"` // Tipe gudang
 	OwnerID       uint      `gorm:"not null" json:"owner_id"`                     // Manager/Owner
 	CreatedAt     time.Time `json:"created_at"`

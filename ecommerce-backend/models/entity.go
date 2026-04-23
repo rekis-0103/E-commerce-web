@@ -10,6 +10,11 @@ type User struct {
 	Role        string    `gorm:"type:enum('admin', 'seller', 'buyer', 'courier', 'warehouse_staff');default:'buyer'" json:"role"`
 	Phone       string    `json:"phone"`
 	Address     string    `json:"address"`
+	Province    string    `json:"province"`
+	City        string    `json:"city"`
+	District    string    `json:"district"`
+	Village     string    `json:"village"`
+	PostalCode  string    `json:"postal_code"`
 	DateOfBirth string    `json:"date_of_birth"`
 	WarehouseID *uint     `json:"warehouse_id,omitempty"` // ID Gudang tempat staf bekerja
 	CreatedAt   time.Time `json:"created_at"`
@@ -28,6 +33,10 @@ type Shop struct {
 	ShopName          string     `json:"shop_name"`
 	Description       string     `json:"description"`
 	Province          string     `json:"province"`
+	City              string     `json:"city"`
+	District          string     `json:"district"`
+	Village           string     `json:"village"`
+	PostalCode        string     `json:"postal_code"`
 	Address           string     `json:"address"`
 	Badge             string     `gorm:"type:enum('Reguler', 'Terpercaya', 'Resmi');default:'Reguler'" json:"badge"`
 	Status            string     `gorm:"type:enum('pending', 'approved', 'rejected');default:'pending'" json:"status"`
