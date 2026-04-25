@@ -4,7 +4,9 @@ import axios from 'axios';
 import ImageCropModal from '../../components/ImageCropModal';
 import { useTheme, DarkModeToggle } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
-import { FaEdit, FaTimes, FaSignOutAlt, FaBox, FaPlus, FaCheck, FaArrowLeft, FaTruck, FaHome } from 'react-icons/fa';
+import { FaEdit, FaTimes, FaSignOutAlt, FaBox, FaPlus, FaCheck, FaArrowLeft, FaTruck, FaHome, FaMap, FaCity, FaBuilding, FaMapMarkerAlt } from 'react-icons/fa';
+
+import { regionService } from '../../services/regionService';
 
 function SellerDashboard() {
   const { theme } = useTheme();
@@ -19,20 +21,24 @@ function SellerDashboard() {
   const [editId, setEditId] = useState(null);
 
   const [activeTab, setActiveTab] = useState('products'); // 'products' or 'profile'
-  const [shopProfile, setShopProfile] = useState({ shop_name: '', description: '', province: '', address: '' });
+  const [shopProfile, setShopProfile] = useState({ 
+    shop_name: '', 
+    description: '', 
+    province: '', 
+    city: '',
+    district: '',
+    village: '',
+    postal_code: '',
+    address: '' 
+  });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
 
-  const provinces = [
-    "Aceh", "Sumatera Utara", "Sumatera Barat", "Riau", "Kepulauan Riau", "Jambi", 
-    "Sumatera Selatan", "Bangka Belitung", "Bengkulu", "Lampung", "DKI Jakarta", 
-    "Jawa Barat", "Banten", "Jawa Tengah", "DI Yogyakarta", "Jawa Timur", 
-    "Bali", "Nusa Tenggara Barat", "Nusa Tenggara Timur", "Kalimantan Barat", 
-    "Kalimantan Tengah", "Kalimantan Selatan", "Kalimantan Timur", "Kalimantan Utara", 
-    "Sulawesi Utara", "Sulawesi Tengah", "Sulawesi Selatan", "Sulawesi Tenggara", 
-    "Gorontalo", "Sulawesi Barat", "Maluku", "Maluku Utara", "Papua", 
-    "Papua Barat", "Papua Selatan", "Papua Tengah", "Papua Pegunungan", "Papua Barat Daya"
-  ];
+  const [provinces, setProvinces] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [villages, setVillages] = useState([]);
+  const [regionIds, setRegionIds] = useState({ province: '', city: '', district: '' });
 
   const [formData, setFormData] = useState({ name: '', description: '', price: '', stock: '' });
   const [imageFiles, setImageFiles] = useState([]);
@@ -47,6 +53,7 @@ function SellerDashboard() {
     else {
       fetchProducts();
       fetchShopProfile();
+      loadProvinces();
       // Ambil nama user dari profil
       axios.get('http://localhost:3000/api/user/profile', {
         headers: { Authorization: `Bearer ${token}` }
@@ -56,6 +63,49 @@ function SellerDashboard() {
       }).catch(() => {});
     }
   }, [role, navigate]);
+
+  const loadProvinces = async () => {
+    try {
+      const data = await regionService.getProvinces();
+      setProvinces(data);
+    } catch (err) { console.error("Gagal memuat provinsi", err); }
+  };
+
+  const handleProvinceChange = async (e) => {
+    const provinceId = e.target.value;
+    const provinceName = provinces.find(p => p.id === provinceId)?.name || '';
+    setShopProfile({ ...shopProfile, province: provinceName, city: '', district: '', village: '' });
+    setRegionIds({ ...regionIds, province: provinceId, city: '', district: '' });
+    setCities([]); setDistricts([]); setVillages([]);
+    if (provinceId) {
+      const data = await regionService.getRegencies(provinceId);
+      setCities(data);
+    }
+  };
+
+  const handleCityChange = async (e) => {
+    const cityId = e.target.value;
+    const cityName = cities.find(c => c.id === cityId)?.name || '';
+    setShopProfile({ ...shopProfile, city: cityName, district: '', village: '' });
+    setRegionIds({ ...regionIds, city: cityId, district: '' });
+    setDistricts([]); setVillages([]);
+    if (cityId) {
+      const data = await regionService.getDistricts(cityId);
+      setDistricts(data);
+    }
+  };
+
+  const handleDistrictChange = async (e) => {
+    const districtId = e.target.value;
+    const districtName = districts.find(d => d.id === districtId)?.name || '';
+    setShopProfile({ ...shopProfile, district: districtName, village: '' });
+    setRegionIds({ ...regionIds, district: districtId });
+    setVillages([]);
+    if (districtId) {
+      const data = await regionService.getVillages(districtId);
+      setVillages(data);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -85,6 +135,10 @@ function SellerDashboard() {
           shop_name: response.data.data.shop_name || '',
           description: response.data.data.description || '',
           province: response.data.data.province || '',
+          city: response.data.data.city || '',
+          district: response.data.data.district || '',
+          village: response.data.data.village || '',
+          postal_code: response.data.data.postal_code || '',
           address: response.data.data.address || ''
         });
       }
@@ -95,10 +149,6 @@ function SellerDashboard() {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
-    if (shopProfile.province && !provinces.includes(shopProfile.province)) {
-      alert("Provinsi tidak valid. Silakan pilih dari daftar yang tersedia.");
-      return;
-    }
     setSavingProfile(true);
     try {
       await axios.put('http://localhost:3000/api/seller/shop/profile', shopProfile, {
@@ -896,49 +946,151 @@ function SellerDashboard() {
                   />
                 </div>
 
-                <div style={{ marginBottom: 15 }}>
-                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: theme.text }}>Lokasi Toko (Provinsi)</label>
-                  <input
-                    list="provinces-list"
-                    required
-                    placeholder="Ketik atau pilih provinsi..."
-                    value={shopProfile.province}
-                    onChange={(e) => setShopProfile({ ...shopProfile, province: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: 12,
-                      borderRadius: 8,
-                      border: `1px solid ${theme.border}`,
-                      backgroundColor: theme.inputBg,
-                      color: theme.text,
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <datalist id="provinces-list">
-                    {provinces.map((prov, index) => (
-                      <option key={index} value={prov} />
-                    ))}
-                  </datalist>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
+                  <div style={{ position: 'relative' }}>
+                    <FaMap style={{ position: 'absolute', top: '50%', left: 16, transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 16, zIndex: 1 }} />
+                    <select
+                      value={regionIds.province}
+                      onChange={handleProvinceChange}
+                      style={{
+                        width: '100%',
+                        padding: '16px 16px 16px 48px',
+                        borderRadius: 12,
+                        border: `2px solid ${theme.border}`,
+                        backgroundColor: theme.inputBg,
+                        color: theme.text,
+                        fontSize: 15,
+                        outline: 'none',
+                        appearance: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="">{shopProfile.province || 'Pilih Provinsi'}</option>
+                      {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={{ position: 'relative' }}>
+                    <FaCity style={{ position: 'absolute', top: '50%', left: 16, transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 16, zIndex: 1 }} />
+                    <select
+                      value={regionIds.city}
+                      onChange={handleCityChange}
+                      disabled={!regionIds.province}
+                      style={{
+                        width: '100%',
+                        padding: '16px 16px 16px 48px',
+                        borderRadius: 12,
+                        border: `2px solid ${theme.border}`,
+                        backgroundColor: regionIds.province ? theme.inputBg : theme.bg,
+                        color: theme.text,
+                        fontSize: 15,
+                        outline: 'none',
+                        appearance: 'none',
+                        cursor: regionIds.province ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      <option value="">{shopProfile.city || 'Pilih Kota'}</option>
+                      {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
+                  <div style={{ position: 'relative' }}>
+                    <FaBuilding style={{ position: 'absolute', top: '50%', left: 16, transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 16, zIndex: 1 }} />
+                    <select
+                      value={regionIds.district}
+                      onChange={handleDistrictChange}
+                      disabled={!regionIds.city}
+                      style={{
+                        width: '100%',
+                        padding: '16px 16px 16px 48px',
+                        borderRadius: 12,
+                        border: `2px solid ${theme.border}`,
+                        backgroundColor: regionIds.city ? theme.inputBg : theme.bg,
+                        color: theme.text,
+                        fontSize: 15,
+                        outline: 'none',
+                        appearance: 'none',
+                        cursor: regionIds.city ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      <option value="">{shopProfile.district || 'Pilih Kecamatan'}</option>
+                      {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={{ position: 'relative' }}>
+                    <FaHome style={{ position: 'absolute', top: '50%', left: 16, transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 16, zIndex: 1 }} />
+                    <select
+                      value={shopProfile.village}
+                      onChange={(e) => setShopProfile({ ...shopProfile, village: e.target.value })}
+                      disabled={!regionIds.district}
+                      style={{
+                        width: '100%',
+                        padding: '16px 16px 16px 48px',
+                        borderRadius: 12,
+                        border: `2px solid ${theme.border}`,
+                        backgroundColor: regionIds.district ? theme.inputBg : theme.bg,
+                        color: theme.text,
+                        fontSize: 15,
+                        outline: 'none',
+                        appearance: 'none',
+                        cursor: regionIds.district ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      <option value="">{shopProfile.village || 'Pilih Kelurahan'}</option>
+                      {villages.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15, marginBottom: 15 }}>
+                  <div style={{ position: 'relative' }}>
+                    <FaMapMarkerAlt style={{ position: 'absolute', top: '50%', left: 16, transform: 'translateY(-50%)', color: theme.textSecondary, fontSize: 16, zIndex: 1 }} />
+                    <input
+                      type="text"
+                      placeholder="Kode Pos"
+                      value={shopProfile.postal_code}
+                      onChange={(e) => setShopProfile({ ...shopProfile, postal_code: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '16px 16px 16px 48px',
+                        borderRadius: 12,
+                        border: `2px solid ${theme.border}`,
+                        backgroundColor: theme.inputBg,
+                        color: theme.text,
+                        fontSize: 15,
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: 25 }}>
-                  <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: theme.text }}>Alamat Lengkap Toko</label>
-                  <textarea
-                    rows="3"
-                    required
-                    value={shopProfile.address}
-                    onChange={(e) => setShopProfile({ ...shopProfile, address: e.target.value })}
-                    placeholder="Masukkan alamat lengkap dengan kecamatan, kelurahan, jalan, no rumah..."
-                    style={{
-                      width: '100%',
-                      padding: 12,
-                      borderRadius: 8,
-                      border: `1px solid ${theme.border}`,
-                      backgroundColor: theme.inputBg,
-                      color: theme.text,
-                      boxSizing: 'border-box'
-                    }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <FaMapMarkerAlt style={{ position: 'absolute', top: 20, left: 16, color: theme.textSecondary, fontSize: 16 }} />
+                    <textarea
+                      rows="3"
+                      required
+                      value={shopProfile.address}
+                      onChange={(e) => setShopProfile({ ...shopProfile, address: e.target.value })}
+                      placeholder="Alamat lengkap (Jalan, No. Rumah, RT/RW)..."
+                      style={{
+                        width: '100%',
+                        padding: '16px 16px 16px 48px',
+                        borderRadius: 12,
+                        border: `2px solid ${theme.border}`,
+                        backgroundColor: theme.inputBg,
+                        color: theme.text,
+                        fontSize: 15,
+                        outline: 'none',
+                        minHeight: 100,
+                        fontFamily: 'inherit',
+                        resize: 'vertical'
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 15 }}>
@@ -992,6 +1144,22 @@ function SellerDashboard() {
                 <div>
                   <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Provinsi</p>
                   <p style={{ color: theme.text, fontWeight: 600, fontSize: 16 }}>{shopProfile.province || '-'}</p>
+                </div>
+                <div>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Kota/Kabupaten</p>
+                  <p style={{ color: theme.text, fontWeight: 600, fontSize: 16 }}>{shopProfile.city || '-'}</p>
+                </div>
+                <div>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Kecamatan</p>
+                  <p style={{ color: theme.text, fontWeight: 600, fontSize: 16 }}>{shopProfile.district || '-'}</p>
+                </div>
+                <div>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Kelurahan</p>
+                  <p style={{ color: theme.text, fontWeight: 600, fontSize: 16 }}>{shopProfile.village || '-'}</p>
+                </div>
+                <div>
+                  <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Kode Pos</p>
+                  <p style={{ color: theme.text, fontWeight: 600, fontSize: 16 }}>{shopProfile.postal_code || '-'}</p>
                 </div>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <p style={{ color: theme.textSecondary, marginBottom: 5 }}>Deskripsi Toko</p>

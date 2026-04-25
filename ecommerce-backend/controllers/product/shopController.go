@@ -70,6 +70,10 @@ func CreateShop(c *fiber.Ctx) error {
 		ShopName:    data["shop_name"],
 		Description: data["description"],
 		Province:    data["province"],
+		City:        data["city"],
+		District:    data["district"],
+		Village:     data["village"],
+		PostalCode:  data["postal_code"],
 		Address:     data["address"],
 		Status:      "pending", // Wajib di-approve admin nanti
 	}
@@ -124,6 +128,18 @@ func UpdateShopProfile(c *fiber.Ctx) error {
 			return c.Status(400).JSON(fiber.Map{"message": "Provinsi tidak valid"})
 		}
 		shop.Province = prov
+	}
+	if city, ok := data["city"]; ok {
+		shop.City = city
+	}
+	if dist, ok := data["district"]; ok {
+		shop.District = dist
+	}
+	if vill, ok := data["village"]; ok {
+		shop.Village = vill
+	}
+	if post, ok := data["postal_code"]; ok {
+		shop.PostalCode = post
 	}
 	if addr, ok := data["address"]; ok {
 		shop.Address = addr

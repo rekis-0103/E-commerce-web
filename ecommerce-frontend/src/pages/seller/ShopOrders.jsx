@@ -67,22 +67,6 @@ function ShopOrders() {
     }
   };
 
-  const confirmReceived = async (orderId) => {
-    if (window.confirm("Konfirmasi pesanan ini telah diterima pembeli?")) {
-      try {
-        await axios.put(`http://localhost:3000/api/seller/shipments/confirm/${orderId}`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        alert("✅ Pesanan dikonfirmasi selesai!");
-        fetchOrders();
-        fetchShipments();
-      } catch (error) {
-        alert(error.response?.data?.message || "Gagal konfirmasi pesanan");
-      }
-    }
-  };
-
   const getStatusColor = (status) => {
     switch (status) {
       case 'Menunggu Pembayaran': return { bg: '#FEF3C7', text: '#856404' };
@@ -397,25 +381,6 @@ function ShopOrders() {
                         >
                           <FaTruck /> Tracking
                         </Link>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => confirmReceived(order.id)}
-                          style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#F59E0B',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 8,
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6
-                          }}
-                        >
-                          <FaCheckCircle /> Konfirmasi Terima
-                        </motion.button>
                       </>
                     )}
                     {order.status === 'Dikirim' && !shipments[order.id] && (
