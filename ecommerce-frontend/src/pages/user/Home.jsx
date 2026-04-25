@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useTheme, DarkModeToggle } from '../context/ThemeContext';
+import { useTheme, DarkModeToggle } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
 import { FaShoppingCart, FaUser, FaSignOutAlt, FaBox, FaHome, FaTruck, FaWallet } from 'react-icons/fa';
 

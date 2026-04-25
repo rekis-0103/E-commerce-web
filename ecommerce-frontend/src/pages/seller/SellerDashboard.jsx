@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import ImageCropModal from '../components/ImageCropModal';
-import { useTheme, DarkModeToggle } from '../context/ThemeContext';
+import ImageCropModal from '../../components/ImageCropModal';
+import { useTheme, DarkModeToggle } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
 import { FaEdit, FaTimes, FaSignOutAlt, FaBox, FaPlus, FaCheck, FaArrowLeft, FaTruck, FaHome } from 'react-icons/fa';
 

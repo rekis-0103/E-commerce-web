@@ -1,25 +1,25 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import SellerDashboard from './pages/SellerDashboard';
-import Home from './pages/Home';
-import Cart from './pages/Cart';
-import ProductDetail from './pages/ProductDetail';
-import OrderHistory from './pages/OrderHistory';
-import ShopOrders from './pages/ShopOrders';
-import Profile from './pages/Profile';
-import TrackingPage from './pages/TrackingPage';
-import ShipmentManagement from './pages/ShipmentManagement';
-import WarehouseManagement from './pages/WarehouseManagement';
-import DeliveryHubManagement from './pages/DeliveryHubManagement';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminShopApproval from './pages/AdminShopApproval';
-import AdminShopManagement from './pages/AdminShopManagement';
-import AdminWarehouseManagement from './pages/AdminWarehouseManagement';
-import AdminCourierManagement from './pages/AdminCourierManagement';
-import SellerRegistration from './pages/SellerRegistration';
-import AkanePay from './pages/AkanePay';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import SellerRegistration from './pages/auth/SellerRegistration';
+import SellerDashboard from './pages/seller/SellerDashboard';
+import ShopOrders from './pages/seller/ShopOrders';
+import ShipmentManagement from './pages/seller/ShipmentManagement';
+import WarehouseManagement from './pages/seller/WarehouseManagement';
+import Home from './pages/user/Home';
+import Cart from './pages/user/Cart';
+import ProductDetail from './pages/user/ProductDetail';
+import OrderHistory from './pages/user/OrderHistory';
+import Profile from './pages/user/Profile';
+import TrackingPage from './pages/user/TrackingPage';
+import AkanePay from './pages/user/AkanePay';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminShopApproval from './pages/admin/AdminShopApproval';
+import AdminShopManagement from './pages/admin/AdminShopManagement';
+import AdminWarehouseManagement from './pages/admin/AdminWarehouseManagement';
+import AdminCourierManagement from './pages/admin/AdminCourierManagement';
+import DeliveryHubManagement from './pages/admin/DeliveryHubManagement';
 
 function App() {
   return (

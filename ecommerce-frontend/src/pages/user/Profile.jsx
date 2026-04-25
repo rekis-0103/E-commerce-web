@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { useTheme, DarkModeToggle } from '../context/ThemeContext';
+import { useTheme, DarkModeToggle } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
 import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaLock, FaSave, FaArrowLeft, FaEye, FaEyeSlash, FaCity, FaMap, FaBuilding, FaHome } from 'react-icons/fa';
-import { regionService } from '../services/regionService';
+import { regionService } from '../../services/regionService';
 
 function Profile() {
   const { theme } = useTheme();

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
 import { FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash, FaSun } from 'react-icons/fa';
-import bgImage from '../assets/background.jpg';
+import bgImage from '../../assets/background.jpg';
 
 function Register() {
   const { darkMode, toggleDarkMode, theme } = useTheme();

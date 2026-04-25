@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { motion } from 'framer-motion';
 import { FaEnvelope, FaLock, FaUser, FaKey, FaEye, FaEyeSlash, FaSun, FaMoon, FaShoppingCart, FaTruck, FaShieldAlt, FaPercent } from 'react-icons/fa';
-import bgImage from '../assets/background.jpg';
+import bgImage from '../../assets/background.jpg';
 
 function Login() {
   const [isLoginView, setIsLoginView] = useState(true);

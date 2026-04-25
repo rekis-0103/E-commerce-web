@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { useTheme, DarkModeToggle } from '../context/ThemeContext';
+import { useTheme, DarkModeToggle } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
 import { FaStore, FaArrowLeft, FaSignOutAlt, FaClock, FaCheckCircle, FaMapMarkerAlt, FaMap, FaCity, FaBuilding, FaHome } from 'react-icons/fa';
-import { regionService } from '../services/regionService';
+import { regionService } from '../../services/regionService';
 
 function SellerRegistration() {
   const { theme } = useTheme();

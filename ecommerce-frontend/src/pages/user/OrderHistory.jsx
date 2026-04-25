@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import { useTheme, DarkModeToggle } from '../context/ThemeContext';
+import { useTheme, DarkModeToggle } from '../../context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // IMPORT IKON PROFESIONAL

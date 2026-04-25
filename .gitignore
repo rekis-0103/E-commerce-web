@@ -1,0 +1,34 @@
+# OS Files
+Thumbs.db
+.DS_Store
+*.tmp
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backend (Go)
+ecommerce-backend/*.exe
+ecommerce-backend/*.test
+ecommerce-backend/*.prof
+ecommerce-backend/__debug_bin
+ecommerce-backend/ecommerce-backend
+ecommerce-backend/.env
+
+# Frontend (Node/React)
+ecommerce-frontend/node_modules/
+ecommerce-frontend/dist/
+ecommerce-frontend/dist-ssr/
+ecommerce-frontend/*.local
+ecommerce-frontend/.env
+ecommerce-frontend/.env.*.local
+ecommerce-frontend/npm-debug.log*
+ecommerce-frontend/yarn-debug.log*
+ecommerce-frontend/yarn-error.log*
+
+# Static Uploads (Optional)
+# Jika Anda tidak ingin menyimpan file yang diupload user ke Git
+# ecommerce-backend/uploads/*
+# !ecommerce-backend/uploads/.gitkeep
