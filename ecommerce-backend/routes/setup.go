@@ -1,7 +1,11 @@
 package routes
 
 import (
-	"ecommerce-backend/controllers"
+	"ecommerce-backend/controllers/admin"
+	"ecommerce-backend/controllers/auth"
+	"ecommerce-backend/controllers/product"
+	"ecommerce-backend/controllers/transaction"
+	"ecommerce-backend/controllers/user"
 	"ecommerce-backend/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,75 +14,75 @@ import (
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
-	api.Post("/register", controllers.Register)
-	api.Post("/login", controllers.Login)
-	api.Get("/products", controllers.GetAllPublicProducts)
-	api.Get("/products/:id", controllers.GetPublicProductByID)
-	api.Post("/auth/request-otp", controllers.RequestOTP)
-	api.Post("/auth/google", controllers.GoogleLogin)
+	api.Post("/register", auth.Register)
+	api.Post("/login", auth.Login)
+	api.Get("/products", product.GetAllPublicProducts)
+	api.Get("/products/:id", product.GetPublicProductByID)
+	api.Post("/auth/request-otp", auth.RequestOTP)
+	api.Post("/auth/google", auth.GoogleLogin)
 
 	protected := api.Group("/user", middleware.Protected)
-	protected.Get("/profile", controllers.GetProfile)
-	protected.Put("/profile", controllers.UpdateProfile)
-	protected.Post("/shop/register", controllers.CreateShop)
+	protected.Get("/profile", user.GetProfile)
+	protected.Put("/profile", user.UpdateProfile)
+	protected.Post("/shop/register", product.CreateShop)
 
 	// Akane Pay Routes
-	protected.Get("/wallet", controllers.GetWallet)
-	protected.Post("/wallet/setup-pin", controllers.SetupPIN)
-	protected.Post("/wallet/topup", controllers.TopUp)
-	protected.Post("/wallet/withdraw", controllers.Withdrawal)
-	protected.Post("/wallet/pay", controllers.PayWithAkanePay)
+	protected.Get("/wallet", transaction.GetWallet)
+	protected.Post("/wallet/setup-pin", transaction.SetupPIN)
+	protected.Post("/wallet/topup", transaction.TopUp)
+	protected.Post("/wallet/withdraw", transaction.Withdrawal)
+	protected.Post("/wallet/pay", transaction.PayWithAkanePay)
 
-	protected.Post("/cart", controllers.AddToCart)
-	protected.Get("/cart", controllers.GetMyCart)
-	protected.Put("/cart/:id", controllers.UpdateCartQuantity) 
-	protected.Delete("/cart/:id", controllers.DeleteCartItem)
-	protected.Post("/checkout", controllers.Checkout)
-	protected.Get("/orders", controllers.GetMyOrders)
-	protected.Post("/orders/:id/pay", controllers.UploadPaymentProof)
+	protected.Post("/cart", transaction.AddToCart)
+	protected.Get("/cart", transaction.GetMyCart)
+	protected.Put("/cart/:id", transaction.UpdateCartQuantity) 
+	protected.Delete("/cart/:id", transaction.DeleteCartItem)
+	protected.Post("/checkout", transaction.Checkout)
+	protected.Get("/orders", transaction.GetMyOrders)
+	protected.Post("/orders/:id/pay", transaction.UploadPaymentProof)
 
-	admin := api.Group("/admin", middleware.Protected, middleware.IsAdmin)
+	adminGroup := api.Group("/admin", middleware.Protected, middleware.IsAdmin)
 	
 	// Dashboard
-	admin.Get("/dashboard", controllers.AdminDashboardStats)
+	adminGroup.Get("/dashboard", admin.AdminDashboardStats)
 	
 	// Shop approval & management
-	admin.Get("/shops/pending", controllers.GetPendingShops)
-	admin.Put("/shops/approve/:id", controllers.ApproveShop)
-	admin.Put("/shops/reject/:id", controllers.RejectShop)
-	admin.Get("/shops/all", controllers.GetAllShops)
-	admin.Put("/shops/badge/:id", controllers.UpdateShopBadge)
-	admin.Delete("/shops/:id", controllers.DeleteShop)
+	adminGroup.Get("/shops/pending", admin.GetPendingShops)
+	adminGroup.Put("/shops/approve/:id", admin.ApproveShop)
+	adminGroup.Put("/shops/reject/:id", admin.RejectShop)
+	adminGroup.Get("/shops/all", admin.GetAllShops)
+	adminGroup.Put("/shops/badge/:id", admin.UpdateShopBadge)
+	adminGroup.Delete("/shops/:id", admin.DeleteShop)
 	
 	// Warehouse management
-	admin.Post("/warehouse/create", controllers.CreateWarehouseByAdmin)
-	admin.Get("/warehouse/all", controllers.GetAllWarehousesWithStaff)
-	admin.Post("/warehouse/add-staff", controllers.AddWarehouseStaff)
-	admin.Get("/staff/available", controllers.GetAvailableStaff)
+	adminGroup.Post("/warehouse/create", admin.CreateWarehouseByAdmin)
+	adminGroup.Get("/warehouse/all", admin.GetAllWarehousesWithStaff)
+	adminGroup.Post("/warehouse/add-staff", admin.AddWarehouseStaff)
+	adminGroup.Get("/staff/available", admin.GetAvailableStaff)
 	
 	// Courier & Delivery Hub management
-	admin.Post("/courier/add", controllers.AddCourierByAdmin)
-	admin.Get("/courier/available", controllers.GetAvailableCouriers)
-	admin.Post("/courier/assign-warehouse", controllers.AssignCourierToWarehouse)
-	admin.Get("/courier/all", controllers.GetAllCouriersWithWarehouse) 
+	adminGroup.Post("/courier/add", admin.AddCourierByAdmin)
+	adminGroup.Get("/courier/available", admin.GetAvailableCouriers)
+	adminGroup.Post("/courier/assign-warehouse", admin.AssignCourierToWarehouse)
+	adminGroup.Get("/courier/all", admin.GetAllCouriersWithWarehouse) 
 
 	// Delivery Hub Admin Management
-	admin.Post("/hub/register", controllers.RegisterDeliveryHub)
-	admin.Get("/hub/all", controllers.GetAllDeliveryHubs)
-	admin.Put("/hub/assign-courier/:id", controllers.AssignCourierToHub)
-	admin.Post("/hub/assign-shipment", controllers.AssignShipmentToHub) 
+	adminGroup.Post("/hub/register", admin.RegisterDeliveryHub)
+	adminGroup.Get("/hub/all", admin.GetAllDeliveryHubs)
+	adminGroup.Put("/hub/assign-courier/:id", admin.AssignCourierToHub)
+	adminGroup.Post("/hub/assign-shipment", admin.AssignShipmentToHub) 
 
 	seller := api.Group("/seller", middleware.Protected, middleware.IsSeller)
-	seller.Get("/shop/profile", controllers.GetShopProfile)
-	seller.Put("/shop/profile", controllers.UpdateShopProfile)
-	seller.Post("/products", controllers.CreateProduct)
-	seller.Get("/products", controllers.GetMyShopProducts)
-	seller.Put("/products/:id", controllers.UpdateProduct)
-	seller.Delete("/products/:id", controllers.DeleteProduct)
-	seller.Get("/orders", controllers.GetShopOrders)
-	seller.Put("/orders/:id/status", controllers.UpdateOrderStatus)
-	seller.Get("/shipments", controllers.GetShopShipmentOrders)
-	seller.Put("/shipments/confirm/:id", controllers.ConfirmReceived)
+	seller.Get("/shop/profile", product.GetShopProfile)
+	seller.Put("/shop/profile", product.UpdateShopProfile)
+	seller.Post("/products", product.CreateProduct)
+	seller.Get("/products", product.GetMyShopProducts)
+	seller.Put("/products/:id", product.UpdateProduct)
+	seller.Delete("/products/:id", product.DeleteProduct)
+	seller.Get("/orders", transaction.GetShopOrders)
+	seller.Put("/orders/:id/status", transaction.UpdateOrderStatus)
+	seller.Get("/shipments", transaction.GetShopShipmentOrders)
+	seller.Put("/shipments/confirm/:id", transaction.ConfirmReceived)
 
 	// Buyer shipment routes
 	buyer := api.Group("/buyer", middleware.Protected, func(c *fiber.Ctx) error {
@@ -88,38 +92,38 @@ func Setup(app *fiber.App) {
 		}
 		return c.Next()
 	})
-	buyer.Get("/shipments", controllers.GetMyShipmentOrders)
-	buyer.Post("/shipments/confirm/:tracking_number", controllers.ConfirmPackageReceived) // Konfirmasi paket diterima
+	buyer.Get("/shipments", transaction.GetMyShipmentOrders)
+	buyer.Post("/shipments/confirm/:tracking_number", admin.ConfirmPackageReceived) 
 
 	// Courier routes
 	courier := api.Group("/courier", middleware.Protected, middleware.IsCourier)
-	courier.Get("/shipments", controllers.GetAllShipments)
-	courier.Put("/shipments/status", controllers.UpdateShipmentStatus)
+	courier.Get("/shipments", transaction.GetAllShipments)
+	courier.Put("/shipments/status", transaction.UpdateShipmentStatus)
 	
 	// Courier delivery hub routes
-	courier.Get("/hub/assignments", controllers.GetMyHubAssignments)
-	courier.Put("/hub/pickup/:id", controllers.PickupShipment)
-	courier.Put("/hub/delivery/:id", controllers.UpdateDeliveryStatus)
-	courier.Post("/hub/proof/:id", controllers.UploadDeliveryProof)  // Upload foto bukti kirim
-	courier.Get("/hub/history", controllers.GetCourierDeliveryHistory)
+	courier.Get("/hub/assignments", admin.GetMyHubAssignments) 
+	courier.Put("/hub/pickup/:id", admin.PickupShipment)
+	courier.Put("/hub/delivery/:id", admin.UpdateDeliveryStatus)
+	courier.Post("/hub/proof/:id", admin.UploadDeliveryProof)
+	courier.Get("/hub/history", admin.GetCourierDeliveryHistory)
 
 	// Warehouse staff routes
 	warehouse := api.Group("/warehouse", middleware.Protected, middleware.IsWarehouseStaff)
-	warehouse.Get("/shipments", controllers.GetAllShipments)
-	warehouse.Put("/shipments/location", controllers.UpdateShipmentLocation)
+	warehouse.Get("/shipments", transaction.GetAllShipments)
+	warehouse.Put("/shipments/location", transaction.UpdateShipmentLocation)
 
 	// Warehouse management routes
-	warehouse.Post("/register", controllers.RegisterWarehouse)
-	warehouse.Get("/my-warehouse", controllers.GetMyWarehouse)
-	warehouse.Post("/movement", controllers.RecordMovement)
-	warehouse.Get("/movements", controllers.GetWarehouseMovements)
-	warehouse.Get("/incoming", controllers.GetIncomingShipments)
-	warehouse.Get("/stock", controllers.GetWarehouseStock)
-	warehouse.Get("/staff/available", controllers.GetAvailableStaff)
-	warehouse.Post("/staff/add", controllers.AddStaffToWarehouse)
-	warehouse.Get("/all", controllers.GetAllWarehouses)
-	warehouse.Get("/:id", controllers.GetWarehouseByID)
+	warehouse.Post("/register", admin.RegisterWarehouse)
+	warehouse.Get("/my-warehouse", admin.GetMyWarehouse)
+	warehouse.Post("/movement", admin.RecordMovement)
+	warehouse.Get("/movements", admin.GetWarehouseMovements)
+	warehouse.Get("/incoming", admin.GetIncomingShipments)
+	warehouse.Get("/stock", admin.GetWarehouseStock)
+	warehouse.Get("/staff/available", admin.GetAvailableStaff)
+	warehouse.Post("/staff/add", admin.AddStaffToWarehouse)
+	warehouse.Get("/all", admin.GetAllWarehouses)
+	warehouse.Get("/:id", admin.GetWarehouseByID)
 
 	// Public tracking
-	api.Get("/tracking/:tracking_number", controllers.GetTrackingByNumber)
+	api.Get("/tracking/:tracking_number", transaction.GetTrackingByNumber)
 }

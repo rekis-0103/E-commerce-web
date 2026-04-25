@@ -1,4 +1,4 @@
-package controllers
+package transaction
 
 import (
 	"ecommerce-backend/config"
