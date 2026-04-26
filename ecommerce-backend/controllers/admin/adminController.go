@@ -334,6 +334,11 @@ func CreateWarehouseByAdmin(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"message": "Kode gudang sudah digunakan"})
 	}
 
+	var ownerIDPtr *uint = nil
+	if req.StaffID > 0 {
+		ownerIDPtr = &req.StaffID
+	}
+
 	warehouse := models.Warehouse{
 		Name:          req.Name,
 		Code:          req.Code,
@@ -344,7 +349,7 @@ func CreateWarehouseByAdmin(c *fiber.Ctx) error {
 		Village:       req.Village,
 		PostalCode:    req.PostalCode,
 		WarehouseType: req.WarehouseType,
-		OwnerID:       req.StaffID,
+		OwnerID:       ownerIDPtr,
 	}
 
 	if err := tx.Create(&warehouse).Error; err != nil {
@@ -389,10 +394,15 @@ func UpdateWarehouseByAdmin(c *fiber.Ctx) error {
 	tx := config.DB.Begin()
 
 	// Jika manager berubah, update user terkait
-	if req.StaffID != warehouse.OwnerID {
+	var newOwnerID *uint = nil
+	if req.StaffID > 0 {
+		newOwnerID = &req.StaffID
+	}
+
+	if (newOwnerID == nil && warehouse.OwnerID != nil) || (newOwnerID != nil && warehouse.OwnerID == nil) || (newOwnerID != nil && warehouse.OwnerID != nil && *newOwnerID != *warehouse.OwnerID) {
 		// Lepas manager lama jika ada
-		if warehouse.OwnerID > 0 {
-			tx.Model(&models.User{}).Where("id = ?", warehouse.OwnerID).Update("warehouse_id", nil)
+		if warehouse.OwnerID != nil {
+			tx.Model(&models.User{}).Where("id = ?", *warehouse.OwnerID).Update("warehouse_id", nil)
 		}
 		// Set manager baru
 		if req.StaffID > 0 {
@@ -406,7 +416,7 @@ func UpdateWarehouseByAdmin(c *fiber.Ctx) error {
 	warehouse.Name = req.Name
 	warehouse.Address = req.Address
 	warehouse.WarehouseType = req.WarehouseType
-	warehouse.OwnerID = req.StaffID
+	warehouse.OwnerID = newOwnerID
 
 	if err := tx.Save(&warehouse).Error; err != nil {
 		tx.Rollback()
@@ -420,17 +430,33 @@ func UpdateWarehouseByAdmin(c *fiber.Ctx) error {
 // DeleteWarehouseByAdmin - Hapus gudang (Kurir & Staff akan di-unassign otomatis)
 func DeleteWarehouseByAdmin(c *fiber.Ctx) error {
 	id := c.Params("id")
-	tx := config.DB.Begin()
-
-	// Unassign semua user (kurir & staff) dari gudang ini
-	if err := tx.Model(&models.User{}).Where("warehouse_id = ?", id).Update("warehouse_id", nil).Error; err != nil {
-		tx.Rollback()
-		return c.Status(500).JSON(fiber.Map{"message": "Gagal melepaskan staff/kurir"})
+	if id == "" || id == "undefined" {
+		return c.Status(400).JSON(fiber.Map{"message": "ID Gudang tidak valid"})
 	}
 
+	tx := config.DB.Begin()
+
+	// 1. Unassign semua user (kurir & staff) dari gudang ini
+	if err := tx.Model(&models.User{}).Where("warehouse_id = ?", id).Update("warehouse_id", nil).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal melepaskan staff/kurir dari gudang"})
+	}
+
+	// 2. Update data pengiriman yang mungkin merujuk ke gudang ini agar tidak error constraint
+	// Kita set warehouse_id jadi NULL di tabel shipments
+	tx.Model(&models.Shipment{}).Where("warehouse_id = ?", id).Update("warehouse_id", nil)
+
+	// 3. Hapus riwayat pergerakan gudang (Warehouse Movements) yang merujuk ke gudang ini
+	// Ini adalah penyebab error 1451 yang Anda alami
+	if err := tx.Exec("DELETE FROM warehouse_movements WHERE warehouse_id = ?", id).Error; err != nil {
+		tx.Rollback()
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal membersihkan riwayat pergerakan gudang"})
+	}
+
+	// 4. Hapus gudang
 	if err := tx.Delete(&models.Warehouse{}, id).Error; err != nil {
 		tx.Rollback()
-		return c.Status(500).JSON(fiber.Map{"message": "Gagal menghapus gudang"})
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menghapus gudang. Pastikan tidak ada data transaksi aktif yang sangat bergantung pada gudang ini."})
 	}
 
 	tx.Commit()
@@ -440,6 +466,9 @@ func DeleteWarehouseByAdmin(c *fiber.Ctx) error {
 // UnassignCourierFromWarehouse - Melepas kurir dari gudang tanpa menghapus akun
 func UnassignCourierFromWarehouse(c *fiber.Ctx) error {
 	courierID := c.Params("id")
+	if courierID == "" || courierID == "undefined" {
+		return c.Status(400).JSON(fiber.Map{"message": "ID Kurir tidak valid"})
+	}
 	
 	if err := config.DB.Model(&models.User{}).Where("id = ? AND role = ?", courierID, "courier").Update("warehouse_id", nil).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal melepas kurir"})
@@ -562,7 +591,7 @@ func AddWarehouseStaff(c *fiber.Ctx) error {
 			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
 		}
 
-		warehouse.OwnerID = staff.ID
+		warehouse.OwnerID = &staff.ID
 		if err := tx.Save(&warehouse).Error; err != nil {
 			tx.Rollback()
 			return c.Status(500).JSON(fiber.Map{"message": "Gagal menugaskan staff ke gudang"})

@@ -51,7 +51,7 @@ func RegisterWarehouse(c *fiber.Ctx) error {
 		Address:       req.Address,
 		Province:      req.Province,
 		WarehouseType: req.WarehouseType,
-		OwnerID:       userID,
+		OwnerID:       &userID,
 	}
 
 	if err := config.DB.Create(&warehouse).Error; err != nil {

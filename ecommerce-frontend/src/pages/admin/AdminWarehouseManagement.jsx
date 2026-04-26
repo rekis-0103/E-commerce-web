@@ -117,8 +117,9 @@ function AdminWarehouseManagement() {
 
   const handleUpdateWarehouse = async (e) => {
     e.preventDefault();
+    const whId = selectedWarehouse.id || selectedWarehouse.ID;
     try {
-      await axios.put(`http://localhost:3000/api/admin/warehouse/${selectedWarehouse.ID}`, {
+      await axios.put(`http://localhost:3000/api/admin/warehouse/${whId}`, {
         name: warehouseName, address: warehouseAddress, warehouse_type: warehouseType, staff_id: selectedStaffId ? parseInt(selectedStaffId) : 0
       }, { headers: { Authorization: `Bearer ${token}` } });
       alert("✅ Gudang berhasil diupdate!");
@@ -127,15 +128,17 @@ function AdminWarehouseManagement() {
   };
 
   const handleDeleteWarehouse = async (id) => {
+    if (!id) { alert("ID Gudang tidak ditemukan"); return; }
     if (window.confirm("Yakin ingin menghapus gudang ini? Seluruh staff & kurir akan otomatis dilepaskan (unassigned).")) {
       try {
         await axios.delete(`http://localhost:3000/api/admin/warehouse/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-        alert("Gudang dihapus"); fetchData();
-      } catch (error) { alert("Gagal menghapus gudang"); }
+        alert("Gudang berhasil dihapus"); fetchData();
+      } catch (error) { alert(error.response?.data?.message || "Gagal menghapus gudang"); }
     }
   };
 
   const handleUnassignCourier = async (courierId) => {
+    if (!courierId) { alert("ID Kurir tidak ditemukan"); return; }
     if (window.confirm("Lepaskan kurir ini dari gudang? Akun kurir tetap ada.")) {
       try {
         await axios.delete(`http://localhost:3000/api/admin/courier/unassign/${courierId}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -146,10 +149,10 @@ function AdminWarehouseManagement() {
 
   const openEditModal = (w) => {
     setSelectedWarehouse(w);
-    setWarehouseName(w.name);
-    setWarehouseAddress(w.address);
-    setWarehouseType(w.warehouse_type);
-    setSelectedStaffId(w.owner_id || '');
+    setWarehouseName(w.name || '');
+    setWarehouseAddress(w.address || '');
+    setWarehouseType(w.warehouse_type || 'pengiriman');
+    setSelectedStaffId(w.owner_id || w.ownerID || '');
     setShowEditModal(true);
   };
 
@@ -161,9 +164,10 @@ function AdminWarehouseManagement() {
 
   const handleAddNewCourier = async (e) => {
     e.preventDefault();
+    const whId = selectedWarehouse.id || selectedWarehouse.ID;
     try {
       await axios.post('http://localhost:3000/api/admin/courier/add', {
-        name: courierName, email: courierEmail, password: courierPassword, warehouse_id: selectedWarehouse.ID
+        name: courierName, email: courierEmail, password: courierPassword, warehouse_id: whId
       }, { headers: { Authorization: `Bearer ${token}` } });
       alert("✅ Kurir berhasil ditambahkan!");
       setShowAddCourierModal(false); fetchData();
@@ -173,9 +177,10 @@ function AdminWarehouseManagement() {
 
   const handleAssignCourier = async (e) => {
     e.preventDefault();
+    const whId = selectedWarehouse.id || selectedWarehouse.ID;
     try {
       await axios.post('http://localhost:3000/api/admin/courier/assign-warehouse', {
-        courier_id: parseInt(selectedCourierId), warehouse_id: selectedWarehouse.ID
+        courier_id: parseInt(selectedCourierId), warehouse_id: whId
       }, { headers: { Authorization: `Bearer ${token}` } });
       alert("✅ Kurir berhasil ditugaskan!");
       setShowAssignCourierModal(false); fetchData();
@@ -209,18 +214,18 @@ function AdminWarehouseManagement() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(450px, 1fr))', gap: 24 }}>
         {warehouses.map((w) => (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={w.ID} style={{ backgroundColor: theme.cardBg, borderRadius: 20, padding: 24, boxShadow: theme.shadow, border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={w.id || w.ID} style={{ backgroundColor: theme.cardBg, borderRadius: 20, padding: 24, boxShadow: theme.shadow, border: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', color: theme.text, fontSize: 22 }}>{w.name}</h3>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, backgroundColor: '#3B82F6', color: 'white', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>{w.code}</span>
-                  <span style={{ fontSize: 12, backgroundColor: w.warehouse_type === 'pengiriman' ? '#8B5CF6' : '#F59E0B', color: 'white', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>{w.warehouse_type.toUpperCase()}</span>
+                  <span style={{ fontSize: 12, backgroundColor: w.warehouse_type === 'pengiriman' ? '#8B5CF6' : '#F59E0B', color: 'white', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>{w.warehouse_type?.toUpperCase()}</span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => openEditModal(w)} style={{ padding: 8, borderRadius: 8, border: 'none', background: '#F59E0B', color: 'white', cursor: 'pointer' }}><FaEdit size={14}/></button>
-                <button onClick={() => handleDeleteWarehouse(w.ID)} style={{ padding: 8, borderRadius: 8, border: 'none', background: '#EF4444', color: 'white', cursor: 'pointer' }}><FaTrash size={14}/></button>
+                <button onClick={() => handleDeleteWarehouse(w.id || w.ID)} style={{ padding: 8, borderRadius: 8, border: 'none', background: '#EF4444', color: 'white', cursor: 'pointer' }}><FaTrash size={14}/></button>
               </div>
             </div>
 
@@ -238,9 +243,9 @@ function AdminWarehouseManagement() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {w.staff?.filter(s => s.role === 'courier').length > 0 ? (
                     w.staff.filter(s => s.role === 'courier').map(courier => (
-                      <div key={courier.ID} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.cardBg, padding: '8px 12px', borderRadius: 8, border: `1px solid ${theme.border}` }}>
+                      <div key={courier.id || courier.ID} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.cardBg, padding: '8px 12px', borderRadius: 8, border: `1px solid ${theme.border}` }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{courier.name}</div>
-                        <button onClick={() => handleUnassignCourier(courier.ID)} style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Lepas Kurir"><FaTimes size={14}/></button>
+                        <button onClick={() => handleUnassignCourier(courier.id || courier.ID)} style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Lepas Kurir"><FaTimes size={14}/></button>
                       </div>
                     ))
                   ) : (
@@ -259,7 +264,6 @@ function AdminWarehouseManagement() {
       </div>
 
       <AnimatePresence>
-        {/* Modal Create Warehouse */}
         {showCreateModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowCreateModal(false)}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 24, maxWidth: 600, width: '90%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
@@ -275,7 +279,6 @@ function AdminWarehouseManagement() {
                     <input type="text" value={warehouseCode} onChange={e => setWarehouseCode(e.target.value)} placeholder="Contoh: WH-JKT-01" style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
                   </div>
                 </div>
-                
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
                     <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Provinsi *</label>
@@ -292,7 +295,6 @@ function AdminWarehouseManagement() {
                     </select>
                   </div>
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
                     <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Kecamatan *</label>
@@ -313,12 +315,10 @@ function AdminWarehouseManagement() {
                     <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="12345" style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
                   </div>
                 </div>
-
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Alamat Lengkap *</label>
                   <textarea value={warehouseAddress} onChange={e => setWarehouseAddress(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, minHeight: 80, fontFamily: 'inherit' }} required />
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
                   <div>
                     <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Tipe Gudang *</label>
@@ -331,11 +331,10 @@ function AdminWarehouseManagement() {
                     <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Staff Manager (Opsional)</label>
                     <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }}>
                       <option value="">Pilih Staff</option>
-                      {availableStaff.map(s => <option key={s.ID} value={s.ID}>{s.name}</option>)}
+                      {availableStaff.map(s => <option key={s.id || s.ID} value={s.id || s.ID}>{s.name}</option>)}
                     </select>
                   </div>
                 </div>
-
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button type="submit" style={{ flex: 1, padding: 14, backgroundColor: '#10B981', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, cursor: 'pointer' }}>Simpan Gudang</button>
                   <button type="button" onClick={() => setShowCreateModal(false)} style={{ flex: 1, padding: 14, backgroundColor: theme.border, color: theme.text, border: 'none', borderRadius: 12, cursor: 'pointer' }}>Batal</button>
@@ -344,8 +343,6 @@ function AdminWarehouseManagement() {
             </motion.div>
           </div>
         )}
-
-        {/* Modal Edit Warehouse */}
         {showEditModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowEditModal(false)}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 24, maxWidth: 600, width: '90%' }} onClick={e => e.stopPropagation()}>
@@ -371,8 +368,8 @@ function AdminWarehouseManagement() {
                     <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Manager</label>
                     <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }}>
                       <option value="">-- Kosongkan / Ganti Manager --</option>
-                      {availableStaff.map(s => <option key={s.ID} value={s.ID}>{s.name}</option>)}
-                      {selectedWarehouse?.owner && <option value={selectedWarehouse.owner.ID}>{selectedWarehouse.owner.name} (Manager Saat Ini)</option>}
+                      {availableStaff.map(s => <option key={s.id || s.ID} value={s.id || s.ID}>{s.name}</option>)}
+                      {selectedWarehouse?.owner && <option key={`owner-${selectedWarehouse.owner.id || selectedWarehouse.owner.ID}`} value={selectedWarehouse.owner.id || selectedWarehouse.owner.ID}>{selectedWarehouse.owner.name} (Manager Saat Ini)</option>}
                     </select>
                   </div>
                 </div>
@@ -384,8 +381,6 @@ function AdminWarehouseManagement() {
             </motion.div>
           </div>
         )}
-
-        {/* Modal Add Courier */}
         {showAddCourierModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowAddCourierModal(false)}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 24, maxWidth: 500, width: '90%' }} onClick={e => e.stopPropagation()}>
@@ -412,8 +407,6 @@ function AdminWarehouseManagement() {
             </motion.div>
           </div>
         )}
-
-        {/* Modal Assign Courier */}
         {showAssignCourierModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowAssignCourierModal(false)}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 24, maxWidth: 500, width: '90%' }} onClick={e => e.stopPropagation()}>
@@ -424,7 +417,7 @@ function AdminWarehouseManagement() {
                   <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Pilih Kurir</label>
                   <select value={selectedCourierId} onChange={e => setSelectedCourierId(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
                     <option value="">-- Pilih Kurir Tersedia --</option>
-                    {availableCouriers.map(c => <option key={c.ID} value={c.ID}>{c.name} ({c.email})</option>)}
+                    {availableCouriers.map(c => <option key={`avail-${c.id || c.ID}`} value={c.id || c.ID}>{c.name} ({c.email})</option>)}
                   </select>
                   {availableCouriers.length === 0 && <p style={{ color: '#EF4444', fontSize: 12, marginTop: 8 }}>Tidak ada kurir yang tersedia (belum ditugaskan Manapun).</p>}
                 </div>
