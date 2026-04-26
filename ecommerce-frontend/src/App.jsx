@@ -19,7 +19,6 @@ import AdminUserManagement from './pages/admin/AdminUserManagement';
 import AdminShopApproval from './pages/admin/AdminShopApproval';
 import AdminShopManagement from './pages/admin/AdminShopManagement';
 import AdminWarehouseManagement from './pages/admin/AdminWarehouseManagement';
-import AdminCourierManagement from './pages/admin/AdminCourierManagement';
 import DeliveryHubManagement from './pages/admin/DeliveryHubManagement';
 
 function App() {
@@ -52,7 +51,6 @@ function App() {
           <Route path="/admin/shop-approval" element={<AdminShopApproval />} />
           <Route path="/admin/shop-management" element={<AdminShopManagement />} />
           <Route path="/admin/warehouse-management" element={<AdminWarehouseManagement />} />
-          <Route path="/admin/courier-management" element={<AdminCourierManagement />} />
         </Routes>
       </Router>
     </ThemeProvider>

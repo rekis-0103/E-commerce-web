@@ -239,31 +239,9 @@ function AdminDashboard() {
             }}
           >
             <FaWarehouse style={{ fontSize: 40, color: '#10B981', marginBottom: 12 }} />
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Manajemen Gudang</h3>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Gudang & Kurir</h3>
             <p style={{ margin: '8px 0 0 0', fontSize: 14, color: theme.textSecondary }}>
-              Buat gudang & tambah staff
-            </p>
-          </motion.div>
-        </Link>
-
-        <Link to="/admin/courier-management" style={{ textDecoration: 'none' }}>
-          <motion.div
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            style={{
-              backgroundColor: theme.cardBg,
-              padding: 24,
-              borderRadius: 16,
-              boxShadow: theme.shadow,
-              border: `1px solid ${theme.border}`,
-              cursor: 'pointer',
-              textAlign: 'center'
-            }}
-          >
-            <FaTruck style={{ fontSize: 40, color: '#8B5CF6', marginBottom: 12 }} />
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Manajemen Kurir</h3>
-            <p style={{ margin: '8px 0 0 0', fontSize: 14, color: theme.textSecondary }}>
-              Tambah kurir & assign ke hub
+              Kelola gudang & penugasan kurir
             </p>
           </motion.div>
         </Link>
