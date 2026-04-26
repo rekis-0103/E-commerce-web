@@ -637,3 +637,119 @@ func AssignCourierToWarehouse(c *fiber.Ctx) error {
 	})
 }
 
+// ManageUsers - Mendapatkan list user dengan filter role dan search
+func ManageUsers(c *fiber.Ctx) error {
+	role := c.Query("role") // seller, warehouse_staff, courier
+	search := c.Query("search")
+
+	var users []models.User
+	query := config.DB.Model(&models.User{})
+
+	if role != "" {
+		query = query.Where("role = ?", role)
+	} else {
+		// Default: ambil semua kecuali buyer dan admin
+		query = query.Where("role IN ?", []string{"seller", "warehouse_staff", "courier"})
+	}
+
+	if search != "" {
+		query = query.Where("name LIKE ? OR email LIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	if err := query.Order("created_at desc").Find(&users).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data user"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Daftar user berhasil diambil",
+		"data":    users,
+	})
+}
+
+// CreateUserByAdminGeneral - Membuat user baru oleh admin
+func CreateUserByAdminGeneral(c *fiber.Ctx) error {
+	var req struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
+	}
+
+	if req.Name == "" || req.Email == "" || req.Password == "" || req.Role == "" {
+		return c.Status(400).JSON(fiber.Map{"message": "Semua field wajib diisi"})
+	}
+
+	// Hash password
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+
+	user := models.User{
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Role:     req.Role,
+	}
+
+	if err := config.DB.Create(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat user (Email mungkin sudah terdaftar)"})
+	}
+
+	return c.Status(201).JSON(fiber.Map{
+		"message": "User berhasil dibuat",
+		"data":    user,
+	})
+}
+
+// UpdateUserByAdmin - Update data user oleh admin
+func UpdateUserByAdmin(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	var req struct {
+		Name  string `json:"name"`
+		Role  string `json:"role"`
+		Phone string `json:"phone"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
+	}
+
+	var user models.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "User tidak ditemukan"})
+	}
+
+	user.Name = req.Name
+	user.Role = req.Role
+	user.Phone = req.Phone
+
+	if err := config.DB.Save(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengupdate user"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "User berhasil diupdate",
+		"data":    user,
+	})
+}
+
+// DeleteUserByAdmin - Hapus user oleh admin
+func DeleteUserByAdmin(c *fiber.Ctx) error {
+	userID := c.Params("id")
+
+	var user models.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "User tidak ditemukan"})
+	}
+
+	if err := config.DB.Delete(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menghapus user"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "User berhasil dihapus",
+	})
+}
+

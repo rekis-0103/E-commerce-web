@@ -66,6 +66,12 @@ func Setup(app *fiber.App) {
 	adminGroup.Post("/courier/assign-warehouse", admin.AssignCourierToWarehouse)
 	adminGroup.Get("/courier/all", admin.GetAllCouriersWithWarehouse) 
 
+	// General User Management (CRUD)
+	adminGroup.Get("/users", admin.ManageUsers)
+	adminGroup.Post("/users", admin.CreateUserByAdminGeneral)
+	adminGroup.Put("/users/:id", admin.UpdateUserByAdmin)
+	adminGroup.Delete("/users/:id", admin.DeleteUserByAdmin)
+
 	// Delivery Hub Admin Management
 	adminGroup.Post("/hub/register", admin.RegisterDeliveryHub)
 	adminGroup.Get("/hub/all", admin.GetAllDeliveryHubs)

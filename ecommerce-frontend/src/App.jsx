@@ -15,6 +15,7 @@ import Profile from './pages/user/Profile';
 import TrackingPage from './pages/user/TrackingPage';
 import AkanePay from './pages/user/AkanePay';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUserManagement from './pages/admin/AdminUserManagement';
 import AdminShopApproval from './pages/admin/AdminShopApproval';
 import AdminShopManagement from './pages/admin/AdminShopManagement';
 import AdminWarehouseManagement from './pages/admin/AdminWarehouseManagement';
@@ -47,6 +48,7 @@ function App() {
           
           {/* Admin Routes */}
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/user-management" element={<AdminUserManagement />} />
           <Route path="/admin/shop-approval" element={<AdminShopApproval />} />
           <Route path="/admin/shop-management" element={<AdminShopManagement />} />
           <Route path="/admin/warehouse-management" element={<AdminWarehouseManagement />} />

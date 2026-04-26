@@ -158,6 +158,28 @@ function AdminDashboard() {
           marginBottom: 40
         }}
       >
+        <Link to="/admin/user-management" style={{ textDecoration: 'none' }}>
+          <motion.div
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            style={{
+              backgroundColor: theme.cardBg,
+              padding: 24,
+              borderRadius: 16,
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              cursor: 'pointer',
+              textAlign: 'center'
+            }}
+          >
+            <FaUsers style={{ fontSize: 40, color: '#3B82F6', marginBottom: 12 }} />
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Manajemen User</h3>
+            <p style={{ margin: '8px 0 0 0', fontSize: 14, color: theme.textSecondary }}>
+              CRUD Seller, Staff, Kurir
+            </p>
+          </motion.div>
+        </Link>
+
         <Link to="/admin/shop-approval" style={{ textDecoration: 'none' }}>
           <motion.div
             whileHover={{ scale: 1.03 }}

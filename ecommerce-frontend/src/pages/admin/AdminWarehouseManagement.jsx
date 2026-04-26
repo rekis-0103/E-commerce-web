@@ -185,12 +185,21 @@ function AdminWarehouseManagement() {
                 <textarea value={warehouseAddress} onChange={e => setWarehouseAddress(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, minHeight: 80 }} required />
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Staff Manager *</label>
-                <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
-                  <option value="">Pilih Staff</option>
-                  {availableStaff.map(s => <option key={s.ID} value={s.ID}>{s.name}</option>)}
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Tipe Gudang *</label>
+                  <select value={warehouseType} onChange={e => setWarehouseType(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
+                    <option value="pengiriman">Pengiriman</option>
+                    <option value="sortir">Sortir</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Staff Manager *</label>
+                  <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
+                    <option value="">Pilih Staff</option>
+                    {availableStaff.map(s => <option key={s.ID} value={s.ID}>{s.name}</option>)}
+                  </select>
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: 12 }}>
