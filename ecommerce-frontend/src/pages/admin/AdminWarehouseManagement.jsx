@@ -131,9 +131,15 @@ function AdminWarehouseManagement() {
           <div style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 20, maxWidth: 600, width: '90%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <h3 style={{ color: theme.text, marginBottom: 24 }}>Buat Gudang Baru</h3>
             <form onSubmit={handleCreateWarehouse}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Nama Gudang *</label>
-                <input type="text" value={warehouseName} onChange={e => setWarehouseName(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Nama Gudang *</label>
+                  <input type="text" value={warehouseName} onChange={e => setWarehouseName(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Kode Gudang *</label>
+                  <input type="text" value={warehouseCode} onChange={e => setWarehouseCode(e.target.value)} placeholder="Contoh: WH-JKT-01" style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
+                </div>
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -153,7 +159,7 @@ function AdminWarehouseManagement() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
                 <div>
                   <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Kecamatan *</label>
                   <select value={regionIds.district} onChange={handleDistrictChange} disabled={!regionIds.city} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
@@ -161,7 +167,6 @@ function AdminWarehouseManagement() {
                     {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                 <div>
                   <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Kelurahan *</label>
                   <select value={village} onChange={e => setVillage(e.target.value)} disabled={!regionIds.district} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
@@ -174,6 +179,10 @@ function AdminWarehouseManagement() {
                   <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="Kode Pos" style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
                 </div>
               </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', color: theme.text, marginBottom: 4 }}>Alamat Lengkap *</label>
+                <textarea value={warehouseAddress} onChange={e => setWarehouseAddress(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, minHeight: 80 }} required />
               </div>
 
               <div style={{ marginBottom: 16 }}>
