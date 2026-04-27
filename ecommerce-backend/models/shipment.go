@@ -51,14 +51,16 @@ type Shipment struct {
 	ShippingAddress  string     `json:"shipping_address"`
 	EstimatedDays    int        `json:"estimated_days"`
 	DeliveryPhotoURL string     `json:"delivery_photo_url"` // URL foto bukti pengiriman dari kurir
+	WarehouseID      *uint      `json:"warehouse_id"`       // Gudang yang saat ini menangani paket
 	DeliveredAt      *time.Time `json:"delivered_at"`
 	ReceivedAt       *time.Time `json:"received_at"` // Waktu buyer konfirmasi paket diterima
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 
 	// Relasi
-	Order Order         `json:"order,omitempty"`
-	Logs  []ShipmentLog `gorm:"foreignKey:ShipmentID" json:"logs,omitempty"`
+	Order     Order         `json:"order,omitempty"`
+	Logs      []ShipmentLog `gorm:"foreignKey:ShipmentID" json:"logs,omitempty"`
+	Warehouse Warehouse     `gorm:"foreignKey:WarehouseID" json:"warehouse,omitempty"`
 }
 
 // ShipmentLog menyimpan riwayat setiap perubahan status pengiriman

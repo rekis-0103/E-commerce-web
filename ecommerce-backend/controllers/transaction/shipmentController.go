@@ -19,12 +19,59 @@ func generateTrackingNumber(orderID uint) string {
 	return fmt.Sprintf("TRX-%s-%04d-%d", dateStr, orderID, randSuffix)
 }
 
+// FindNearestWarehouse mencari gudang bertipe 'pengiriman' terdekat dengan lokasi asal
+func FindNearestWarehouse(province, city, district string) (*models.Warehouse, error) {
+	var warehouse models.Warehouse
+
+	// Priority 1: Match Kecamatan (District)
+	if err := config.DB.Where("warehouse_type = 'pengiriman' AND province = ? AND city = ? AND district = ?", province, city, district).First(&warehouse).Error; err == nil {
+		return &warehouse, nil
+	}
+
+	// Priority 2: Match Kota (City)
+	if err := config.DB.Where("warehouse_type = 'pengiriman' AND province = ? AND city = ?", province, city).First(&warehouse).Error; err == nil {
+		return &warehouse, nil
+	}
+
+	// Priority 3: Match Provinsi (Province)
+	if err := config.DB.Where("warehouse_type = 'pengiriman' AND province = ?", province).First(&warehouse).Error; err == nil {
+		return &warehouse, nil
+	}
+
+	// Priority 4: Gudang Pengiriman apa saja yang tersedia (Global Fallback)
+	if err := config.DB.Where("warehouse_type = 'pengiriman'").First(&warehouse).Error; err == nil {
+		return &warehouse, nil
+	}
+
+	return nil, fmt.Errorf("tidak ada gudang pengiriman yang tersedia di wilayah ini")
+}
+
 // CreateShipment - Membuat data pengiriman saat order status berubah jadi "Dikirim"
 func CreateShipment(orderID uint, courierName string, shippingAddress string, estimatedDays int) (*models.Shipment, error) {
-	// Cek apakah shipment sudah ada
+	// 1. Dapatkan detail Order dan Lokasi Shop asal
+	var order models.Order
+	if err := config.DB.Preload("Items").First(&order, orderID).Error; err != nil {
+		return nil, fmt.Errorf("order tidak ditemukan")
+	}
+
+	var shop models.Shop
+	if err := config.DB.First(&shop, order.ShopID).Error; err != nil {
+		return nil, fmt.Errorf("toko tidak ditemukan")
+	}
+
+	// 2. Cari Gudang Pengiriman terdekat dari lokasi Penjual
+	nearestWH, err := FindNearestWarehouse(shop.Province, shop.City, shop.District)
+	var warehouseIDPtr *uint = nil
+	currentLocName := "Lokasi Pickup"
+	if err == nil {
+		warehouseIDPtr = &nearestWH.ID
+		currentLocName = fmt.Sprintf("Hub Terdekat: %s (%s)", nearestWH.Name, nearestWH.City)
+	}
+
+	// 3. Cek apakah shipment sudah ada
 	var existingShipment models.Shipment
 	if err := config.DB.Where("order_id = ?", orderID).First(&existingShipment).Error; err == nil {
-		return &existingShipment, nil // Sudah ada, kembalikan yang lama
+		return &existingShipment, nil
 	}
 
 	trackingNumber := generateTrackingNumber(orderID)
@@ -34,22 +81,28 @@ func CreateShipment(orderID uint, courierName string, shippingAddress string, es
 		TrackingNumber:  trackingNumber,
 		CourierName:     courierName,
 		CurrentStatus:   "Dikirim",
-		CurrentLocation: "Gudang Pengiriman",
+		CurrentLocation: currentLocName,
 		ShippingAddress: shippingAddress,
 		EstimatedDays:   estimatedDays,
+		WarehouseID:     warehouseIDPtr, // Tautkan ke gudang terdekat
 	}
 
 	if err := config.DB.Create(&shipment).Error; err != nil {
 		return nil, err
 	}
 
-	// Buat log pertama
+	// 4. Buat log pertama
+	notes := "Pesanan telah diproses oleh penjual. Menunggu pickup oleh kurir."
+	if nearestWH != nil {
+		notes = fmt.Sprintf("Pesanan diproses. Paket akan dikirim melalui %s.", nearestWH.Name)
+	}
+
 	log := models.ShipmentLog{
 		ShipmentID:    shipment.ID,
 		Status:        "Dikirim",
-		Location:      "Gudang Pengiriman",
-		Notes:         "Paket telah dikirim dari gudang",
-		UpdatedBy:     0, // System
+		Location:      shop.City,
+		Notes:         notes,
+		UpdatedBy:     0,
 		UpdatedByRole: "system",
 	}
 	config.DB.Create(&log)
