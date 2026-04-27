@@ -51,15 +51,63 @@ function Profile() {
       navigate('/login');
       return;
     }
-    fetchProfile();
-    loadProvinces();
+    
+    const initializeData = async () => {
+      setIsLoading(true);
+      try {
+        const provincesData = await loadProvinces();
+        const profileData = await fetchProfile();
+        
+        if (profileData && provincesData) {
+          // Cari ID Provinsi berdasarkan nama
+          const foundProv = provincesData.find(p => p.name === profileData.province);
+          if (foundProv) {
+            setRegionIds(prev => ({ ...prev, province: foundProv.id }));
+            
+            // Load Kota
+            const citiesData = await regionService.getRegencies(foundProv.id);
+            setCities(citiesData);
+            
+            // Cari ID Kota berdasarkan nama
+            const foundCity = citiesData.find(c => c.name === profileData.city);
+            if (foundCity) {
+              setRegionIds(prev => ({ ...prev, city: foundCity.id }));
+              
+              // Load Kecamatan
+              const districtsData = await regionService.getDistricts(foundCity.id);
+              setDistricts(districtsData);
+              
+              // Cari ID Kecamatan berdasarkan nama
+              const foundDist = districtsData.find(d => d.name === profileData.district);
+              if (foundDist) {
+                setRegionIds(prev => ({ ...prev, district: foundDist.id }));
+                
+                // Load Kelurahan
+                const villagesData = await regionService.getVillages(foundDist.id);
+                setVillages(villagesData);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Inisialisasi data gagal", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeData();
   }, [token, navigate]);
 
   const loadProvinces = async () => {
     try {
       const data = await regionService.getProvinces();
       setProvinces(data);
-    } catch (err) { console.error("Gagal memuat provinsi", err); }
+      return data;
+    } catch (err) { 
+      console.error("Gagal memuat provinsi", err); 
+      return null;
+    }
   };
 
   const fetchProfile = async () => {
@@ -80,14 +128,14 @@ function Profile() {
         postal_code: data.postal_code || '',
         date_of_birth: data.date_of_birth || '',
       });
-      setIsLoading(false);
+      return data;
     } catch (error) {
       console.error("Gagal mengambil data profil", error);
       if (error.response?.status === 401) {
         localStorage.clear();
         navigate('/login');
       }
-      setIsLoading(false);
+      return null;
     }
   };
 

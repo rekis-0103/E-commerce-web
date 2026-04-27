@@ -199,14 +199,48 @@ func GetShopShipmentOrders(c *fiber.Ctx) error {
 	})
 }
 
-// UpdateShipmentLocation - Untuk staff gudang: update lokasi terakhir paket
+// GetNextDestination menghitung gudang mana yang harus dituju selanjutnya
+func GetNextDestination(shipment *models.Shipment) (string, *uint, string) {
+	var currentWH models.Warehouse
+	if shipment.WarehouseID == nil {
+		return "Alamat Pembeli", nil, "Kurir akan mengantar ke alamat tujuan"
+	}
+	config.DB.First(&currentWH, *shipment.WarehouseID)
+
+	// JIKA di Gudang Pengiriman Asal (Origin Hub) -> Kirim ke Gudang Transit (Sortir) di provinsi yang sama
+	if currentWH.WarehouseType == "pengiriman" && (shipment.CurrentStatus == "Dikirim" || shipment.CurrentStatus == "Di Gudang") {
+		// Cari apakah kita sudah di Hub Tujuan atau Hub Asal
+		// Untuk menyederhanakan, kita cek apakah ada gudang sortir di provinsi ini
+		var sortirWH models.Warehouse
+		err := config.DB.Where("warehouse_type = 'sortir' AND province = ?", currentWH.Province).First(&sortirWH).Error
+		if err == nil && sortirWH.ID != currentWH.ID {
+			return "Gudang Transit (Sortir)", &sortirWH.ID, sortirWH.Name
+		}
+	}
+
+	// JIKA di Gudang Sortir -> Kirim ke Hub Pengiriman (Last Mile Hub) terdekat dengan alamat pembeli
+	if currentWH.WarehouseType == "sortir" {
+		// Parsing sederhana dari ShippingAddress (asumsi format: "... , Kota, Provinsi")
+		// Dalam implementasi nyata, sebaiknya tabel Order/Shipment punya field Province/City terpisah
+		// Kita coba cari Hub Pengiriman di wilayah tersebut atau fallback ke Hub Pengiriman mana saja
+		targetWH, err := FindNearestWarehouse("", "", "") // Fallback
+		if err == nil && targetWH.ID != currentWH.ID {
+			return "Hub Pengiriman Tujuan", &targetWH.ID, targetWH.Name
+		}
+	}
+
+	// JIKA sudah di Hub Pengiriman Tujuan atau tidak ada rute lain -> Alamat Pembeli
+	return "Alamat Pembeli", nil, "Kurir akan mengantar ke alamat tujuan"
+}
+
+// UpdateShipmentLocation - Untuk staff gudang: proses barang masuk/keluar
 func UpdateShipmentLocation(c *fiber.Ctx) error {
 	userID := uint(c.Locals("user_id").(float64))
 	userRole := c.Locals("role").(string)
 
 	var req struct {
 		TrackingNumber string `json:"tracking_number"`
-		Location       string `json:"location"`
+		Action         string `json:"action"` // "masuk" atau "keluar"
 		Notes          string `json:"notes"`
 	}
 
@@ -219,15 +253,47 @@ func UpdateShipmentLocation(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"message": "Nomor resi tidak ditemukan"})
 	}
 
-	// Update lokasi terkini
-	shipment.CurrentLocation = req.Location
-	config.DB.Save(&shipment)
+	// Dapatkan data gudang tempat staff bekerja
+	var staff models.User
+	config.DB.First(&staff, userID)
+	if staff.WarehouseID == nil {
+		return c.Status(403).JSON(fiber.Map{"message": "Anda tidak terdaftar di gudang manapun"})
+	}
 
-	// Buat log baru
+	var currentWH models.Warehouse
+	config.DB.First(&currentWH, *staff.WarehouseID)
+
+	status := shipment.CurrentStatus
+	location := currentWH.Name
+
+	if req.Action == "masuk" {
+		shipment.WarehouseID = staff.WarehouseID
+		shipment.CurrentStatus = "Di Gudang"
+		if currentWH.WarehouseType == "sortir" {
+			shipment.CurrentStatus = "Transit di Gudang Sortir"
+		}
+		status = "Diterima di " + currentWH.Name
+	} else if req.Action == "keluar" {
+		destType, nextWHID, nextName := GetNextDestination(&shipment)
+		
+		shipment.CurrentStatus = "Dalam Perjalanan ke " + destType
+		status = "Keluar dari " + currentWH.Name
+		location = "Menuju " + nextName
+		
+		// PENTING: Update WarehouseID ke tujuan berikutnya agar muncul di tab "Akan Masuk" gudang tujuan
+		shipment.WarehouseID = nextWHID 
+	}
+
+	shipment.CurrentLocation = location
+	if err := config.DB.Save(&shipment).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal menyimpan perubahan status"})
+	}
+
+	// Log
 	log := models.ShipmentLog{
 		ShipmentID:    shipment.ID,
-		Status:        shipment.CurrentStatus,
-		Location:      req.Location,
+		Status:        status,
+		Location:      currentWH.Name, // Tetap gunakan nama gudang saat ini sebagai lokasi event
 		Notes:         req.Notes,
 		UpdatedBy:     userID,
 		UpdatedByRole: userRole,
@@ -235,8 +301,10 @@ func UpdateShipmentLocation(c *fiber.Ctx) error {
 	config.DB.Create(&log)
 
 	return c.JSON(fiber.Map{
-		"message": "Lokasi paket berhasil diperbarui",
-		"data":    shipment,
+		"message": "Status paket diperbarui", 
+		"action": req.Action,
+		"current_location": location,
+		"status": shipment.CurrentStatus,
 	})
 }
 

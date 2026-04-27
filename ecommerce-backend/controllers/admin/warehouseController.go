@@ -67,23 +67,72 @@ func RegisterWarehouse(c *fiber.Ctx) error {
 	})
 }
 
+// GetIncomingShipments - Melihat paket yang sedang menuju ke gudang ini
+func GetIncomingShipments(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+
+	var warehouse models.Warehouse
+	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
+		var user models.User
+		config.DB.First(&user, userID)
+		if user.WarehouseID != nil {
+			config.DB.First(&warehouse, user.WarehouseID)
+		} else {
+			return c.Status(403).JSON(fiber.Map{"message": "Akses ditolak: Anda tidak terdaftar di gudang manapun"})
+		}
+	}
+
+	var shipments []models.Shipment
+	// Cari paket yang lokasinya saat ini menyebutkan gudang ini sebagai tujuan berikutnya
+	if err := config.DB.Where("current_location LIKE ?", "%"+warehouse.Name+"%").
+		Where("current_status LIKE ?", "Dalam Perjalanan%").
+		Preload("Order").Find(&shipments).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data paket masuk"})
+	}
+
+	return c.JSON(fiber.Map{"data": shipments})
+}
+
+// GetWarehouseStock - Melihat paket yang saat ini ada di dalam gudang
+func GetWarehouseStock(c *fiber.Ctx) error {
+	userID := uint(c.Locals("user_id").(float64))
+
+	var warehouse models.Warehouse
+	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
+		var user models.User
+		config.DB.First(&user, userID)
+		if user.WarehouseID != nil {
+			config.DB.First(&warehouse, user.WarehouseID)
+		} else {
+			return c.Status(403).JSON(fiber.Map{"message": "Akses ditolak: Anda tidak terdaftar di gudang manapun"})
+		}
+	}
+
+	var shipments []models.Shipment
+	// Paket yang ada di gudang ini (warehouse_id cocok) dan belum selesai
+	if err := config.DB.Where("warehouse_id = ?", warehouse.ID).
+		Where("current_status != ?", "Selesai").
+		Preload("Order").Find(&shipments).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data stok gudang"})
+	}
+
+	return c.JSON(fiber.Map{"data": shipments})
+}
+
 // GetMyWarehouse - Mendapatkan data gudang milik warehouse staff yang login
 func GetMyWarehouse(c *fiber.Ctx) error {
 	userID := uint(c.Locals("user_id").(float64))
 
 	var warehouse models.Warehouse
-	// Cari gudang dimana user ini adalah Owner atau Staff
 	var user models.User
 	if err := config.DB.First(&user, userID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"message": "User tidak ditemukan"})
 	}
 
 	if user.WarehouseID == nil {
-		// Cek apakah dia owner tapi warehouse_id belum diupdate (migrasi lama)
 		if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
 			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan. Silakan daftarkan gudang terlebih dahulu"})
 		}
-		// Update warehouse_id yang kosong
 		config.DB.Model(&user).Update("warehouse_id", warehouse.ID)
 	}
 
@@ -112,20 +161,16 @@ func RecordMovement(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
 	}
 
-	// Validasi required fields
 	if req.TrackingNumber == "" || req.MovementType == "" {
 		return c.Status(400).JSON(fiber.Map{"message": "Nomor resi dan tipe pergerakan wajib diisi"})
 	}
 
-	// Validasi movement type
 	if req.MovementType != "masuk" && req.MovementType != "keluar" {
 		return c.Status(400).JSON(fiber.Map{"message": "Tipe pergerakan harus 'masuk' atau 'keluar'"})
 	}
 
-	// Dapatkan gudang milik user
 	var warehouse models.Warehouse
 	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
-		// Cek jika dia staff
 		var user models.User
 		config.DB.First(&user, userID)
 		if user.WarehouseID != nil {
@@ -135,26 +180,13 @@ func RecordMovement(c *fiber.Ctx) error {
 		}
 	}
 
-	// LOGIKA KHUSUS TIPE GUDANG
-	if warehouse.WarehouseType == "pengiriman" && req.MovementType == "keluar" {
-		// Gudang pengiriman hanya boleh keluar ke KURIR, bukan antar gudang
-		if req.Status != "Diserahkan ke Kurir" {
-			return c.Status(400).JSON(fiber.Map{
-				"message": "Gudang pengiriman hanya bisa memproses barang keluar untuk diserahkan ke kurir (Gunakan status 'Diserahkan ke Kurir')",
-			})
-		}
-	}
-
-	// Cek apakah resi ada di sistem
 	var shipment models.Shipment
 	if err := config.DB.Where("tracking_number = ?", req.TrackingNumber).First(&shipment).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"message": "Nomor resi tidak ditemukan di sistem"})
 	}
 
-	// Mulai transaksi
 	tx := config.DB.Begin()
 
-	// Buat record warehouse movement
 	movement := models.WarehouseMovement{
 		WarehouseID:    warehouse.ID,
 		TrackingNumber: req.TrackingNumber,
@@ -170,13 +202,11 @@ func RecordMovement(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal mencatat pergerakan barang"})
 	}
 
-	// Update shipment log untuk tracking
 	shipmentLogStatus := fmt.Sprintf("Barang %s di gudang %s", req.MovementType, warehouse.Name)
 	if req.Status != "" {
 		shipmentLogStatus = req.Status
 	}
 
-	// Update current location shipment
 	shipment.CurrentLocation = warehouse.Name
 	if req.MovementType == "keluar" {
 		if req.Status == "Diserahkan ke Kurir" {
@@ -187,6 +217,7 @@ func RecordMovement(c *fiber.Ctx) error {
 		}
 	} else if req.MovementType == "masuk" {
 		shipment.CurrentStatus = "Diproses di Gudang"
+		shipment.WarehouseID = &warehouse.ID
 	}
 
 	if err := tx.Save(&shipment).Error; err != nil {
@@ -194,14 +225,11 @@ func RecordMovement(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal update lokasi pengiriman"})
 	}
 
-	// Buat ShipmentLog entry
 	log := models.ShipmentLog{
 		ShipmentID:    shipment.ID,
 		Status:        shipmentLogStatus,
 		Location:      warehouse.Name,
-		Notes: fmt.Sprintf("[%s] %s", 
-			req.MovementType, 
-			req.Notes),
+		Notes: fmt.Sprintf("[%s] %s", req.MovementType, req.Notes),
 		UpdatedBy:     userID,
 		UpdatedByRole: "warehouse_staff",
 	}
@@ -220,84 +248,19 @@ func RecordMovement(c *fiber.Ctx) error {
 	})
 }
 
-// GetIncomingShipments - Mendapatkan daftar barang yang kemungkinan akan masuk ke gudang ini
-func GetIncomingShipments(c *fiber.Ctx) error {
-	userID := uint(c.Locals("user_id").(float64))
-
-	var warehouse models.Warehouse
-	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
-		var user models.User
-		config.DB.First(&user, userID)
-		if user.WarehouseID != nil {
-			config.DB.First(&warehouse, user.WarehouseID)
-		} else {
-			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
-		}
-	}
-
-	var shipments []models.Shipment
-	
-	// Kriteria barang masuk:
-	// 1. Status 'Dikirim' atau 'Dalam Perjalanan'
-	// 2. Lokasi saat ini bukan gudang ini
-	// 3. (Opsional) Alamat pengiriman di provinsi yang sama dengan gudang
-	
-	query := config.DB.Where("current_location != ? AND current_status IN (?)", warehouse.Name, []string{"Dikirim", "Dalam Perjalanan"})
-	
-	// Jika gudang pengiriman, filter berdasarkan provinsi
-	if warehouse.WarehouseType == "pengiriman" {
-		query = query.Where("shipping_address LIKE ?", "%"+warehouse.Province+"%")
-	}
-
-	if err := query.Find(&shipments).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data barang masuk"})
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Data barang masuk berhasil diambil",
-		"data":    shipments,
-	})
-}
-
-// GetWarehouseStock - Mendapatkan daftar barang yang saat ini berada di dalam gudang
-func GetWarehouseStock(c *fiber.Ctx) error {
-	userID := uint(c.Locals("user_id").(float64))
-
-	var warehouse models.Warehouse
-	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
-		var user models.User
-		config.DB.First(&user, userID)
-		if user.WarehouseID != nil {
-			config.DB.First(&warehouse, user.WarehouseID)
-		} else {
-			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
-		}
-	}
-
-	var shipments []models.Shipment
-	
-	// Kriteria barang di gudang:
-	// 1. Lokasi saat ini adalah gudang ini
-	// 2. Status pengiriman adalah 'Diproses di Gudang' atau 'Dikirim' (jika baru masuk)
-	
-	if err := config.DB.Where("current_location = ? AND current_status != ?", warehouse.Name, "Selesai").
-		Find(&shipments).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil data stok gudang"})
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Data stok gudang berhasil diambil",
-		"data":    shipments,
-	})
-}
-
 // GetWarehouseMovements - Mendapatkan riwayat semua pergerakan barang di gudang
 func GetWarehouseMovements(c *fiber.Ctx) error {
 	userID := uint(c.Locals("user_id").(float64))
 
 	var warehouse models.Warehouse
 	if err := config.DB.Where("owner_id = ?", userID).First(&warehouse).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
+		var user models.User
+		config.DB.First(&user, userID)
+		if user.WarehouseID != nil {
+			config.DB.First(&warehouse, user.WarehouseID)
+		} else {
+			return c.Status(404).JSON(fiber.Map{"message": "Gudang tidak ditemukan"})
+		}
 	}
 
 	var movements []models.WarehouseMovement
@@ -366,13 +329,11 @@ func AddStaffToWarehouse(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"message": "Data tidak valid"})
 	}
 
-	// Pastikan user yang login adalah owner sebuah gudang
 	var warehouse models.Warehouse
 	if err := config.DB.Where("owner_id = ?", ownerID).First(&warehouse).Error; err != nil {
 		return c.Status(403).JSON(fiber.Map{"message": "Hanya pemilik gudang yang dapat menambah staf"})
 	}
 
-	// Update WarehouseID pada staff yang dipilih
 	if err := config.DB.Model(&models.User{}).Where("id = ? AND role = ?", req.StaffID, "warehouse_staff").Update("warehouse_id", warehouse.ID).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal menambahkan staf ke gudang"})
 	}

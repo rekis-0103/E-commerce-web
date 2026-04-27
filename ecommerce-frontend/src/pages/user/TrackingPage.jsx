@@ -275,7 +275,7 @@ function TrackingPage() {
 
               {trackingResult.logs.map((log, idx) => (
                 <motion.div
-                  key={log.ID}
+                  key={log.id || log.ID || `log-${idx}`}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.1 }}

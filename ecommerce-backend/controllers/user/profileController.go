@@ -21,14 +21,19 @@ func GetProfile(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Profil berhasil diambil",
 		"data": fiber.Map{
-			"id":           user.ID,
-			"name":         user.Name,
-			"email":        user.Email,
-			"role":         user.Role,
-			"phone":        user.Phone,
-			"address":      user.Address,
+			"id":            user.ID,
+			"name":          user.Name,
+			"email":         user.Email,
+			"role":          user.Role,
+			"phone":         user.Phone,
+			"address":       user.Address,
+			"province":      user.Province,
+			"city":          user.City,
+			"district":      user.District,
+			"village":       user.Village,
+			"postal_code":   user.PostalCode,
 			"date_of_birth": user.DateOfBirth,
-			"created_at":   user.CreatedAt,
+			"created_at":    user.CreatedAt,
 		},
 	})
 }
@@ -42,6 +47,11 @@ func UpdateProfile(c *fiber.Ctx) error {
 		Name        string `json:"name"`
 		Phone       string `json:"phone"`
 		Address     string `json:"address"`
+		Province    string `json:"province"`
+		City        string `json:"city"`
+		District    string `json:"district"`
+		Village     string `json:"village"`
+		PostalCode  string `json:"postal_code"`
 		DateOfBirth string `json:"date_of_birth"`
 		Password    string `json:"password,omitempty"`
 	}
@@ -66,6 +76,21 @@ func UpdateProfile(c *fiber.Ctx) error {
 	if req.Address != "" {
 		user.Address = req.Address
 	}
+	if req.Province != "" {
+		user.Province = req.Province
+	}
+	if req.City != "" {
+		user.City = req.City
+	}
+	if req.District != "" {
+		user.District = req.District
+	}
+	if req.Village != "" {
+		user.Village = req.Village
+	}
+	if req.PostalCode != "" {
+		user.PostalCode = req.PostalCode
+	}
 	if req.DateOfBirth != "" {
 		user.DateOfBirth = req.DateOfBirth
 	}
@@ -87,14 +112,19 @@ func UpdateProfile(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Profil berhasil diperbarui",
 		"data": fiber.Map{
-			"id":           user.ID,
-			"name":         user.Name,
-			"email":        user.Email,
-			"role":         user.Role,
-			"phone":        user.Phone,
-			"address":      user.Address,
+			"id":            user.ID,
+			"name":          user.Name,
+			"email":         user.Email,
+			"role":          user.Role,
+			"phone":         user.Phone,
+			"address":       user.Address,
+			"province":      user.Province,
+			"city":          user.City,
+			"district":      user.District,
+			"village":       user.Village,
+			"postal_code":   user.PostalCode,
 			"date_of_birth": user.DateOfBirth,
-			"created_at":   user.CreatedAt,
+			"created_at":    user.CreatedAt,
 		},
 	})
 }
