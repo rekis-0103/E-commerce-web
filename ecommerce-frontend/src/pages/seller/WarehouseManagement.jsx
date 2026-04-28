@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useTheme, DarkModeToggle } from '../../context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaWarehouse, FaArrowRight, FaSignInAlt, FaSignOutAlt, FaTruck, FaBox, FaHistory, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaWarehouse, FaArrowRight, FaSignInAlt, FaSignOutAlt, FaTruck, FaBox, FaHistory, FaMapMarkerAlt, FaHome } from 'react-icons/fa';
 
 function WarehouseManagement() {
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
 
@@ -55,6 +57,11 @@ function WarehouseManagement() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
+
   if (isLoading) return <div style={{ background: theme.bg, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><h2 style={{ color: theme.textSecondary }}>Memuat Panel Gudang...</h2></div>;
 
   return (
@@ -72,7 +79,48 @@ function WarehouseManagement() {
               <p style={{ margin: 0, color: theme.textSecondary }}>Panel Manajemen Operasional Gudang ({myWarehouse?.warehouse_type?.toUpperCase()})</p>
             </div>
           </div>
-          <DarkModeToggle />
+          <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/home')}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#10B981',
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <FaHome /> Home
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleLogout}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#EF4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <FaSignOutAlt /> Logout
+            </motion.button>
+            <DarkModeToggle />
+          </div>
         </div>
 
         {/* Tabs */}
