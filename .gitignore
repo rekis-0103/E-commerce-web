@@ -28,6 +28,8 @@ ecommerce-frontend/npm-debug.log*
 ecommerce-frontend/yarn-debug.log*
 ecommerce-frontend/yarn-error.log*
 
+# Mobile (React Native)
+ecommerce-mobile/
 # Static Uploads (Optional)
 # Jika Anda tidak ingin menyimpan file yang diupload user ke Git
 # ecommerce-backend/uploads/*
