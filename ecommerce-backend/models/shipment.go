@@ -49,6 +49,10 @@ type Shipment struct {
 	CurrentStatus    string     `gorm:"default:'Dikirim'" json:"current_status"` // Dikirim, Dalam Perjalanan, Sampai, Menunggu Konfirmasi Diterima, Diterima
 	CurrentLocation  string     `json:"current_location"`
 	ShippingAddress  string     `json:"shipping_address"`
+	Province         string     `gorm:"size:100" json:"province"`
+	City             string     `gorm:"size:100" json:"city"`
+	District         string     `gorm:"size:100" json:"district"`
+	Village          string     `gorm:"size:100" json:"village"`
 	EstimatedDays    int        `json:"estimated_days"`
 	DeliveryPhotoURL string     `json:"delivery_photo_url"` // URL foto bukti pengiriman dari kurir
 	WarehouseID      *uint      `json:"warehouse_id"`       // Gudang yang saat ini menangani paket

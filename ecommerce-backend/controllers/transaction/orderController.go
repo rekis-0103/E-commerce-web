@@ -14,6 +14,10 @@ func Checkout(c *fiber.Ctx) error {
 
 	var req struct {
 		ShippingAddress string `json:"shipping_address"`
+		Province        string `json:"province"`
+		City            string `json:"city"`
+		District        string `json:"district"`
+		Village         string `json:"village"`
 	}
 	if err := c.BodyParser(&req); err != nil || req.ShippingAddress == "" {
 		return c.Status(400).JSON(fiber.Map{"message": "Alamat pengiriman wajib diisi!"})
@@ -57,6 +61,10 @@ func Checkout(c *fiber.Ctx) error {
 			TotalAmount:     totalsMap[shopID],
 			Status:          "Menunggu Pembayaran",
 			ShippingAddress: req.ShippingAddress,
+			Province:        req.Province,
+			City:            req.City,
+			District:        req.District,
+			Village:         req.Village,
 		}
 
 		if err := tx.Create(&order).Error; err != nil {
@@ -297,7 +305,7 @@ func UpdateOrderStatus(c *fiber.Ctx) error {
 
 	// Jika status berubah jadi "Dikirim", buat shipment otomatis
 	if req.Status == "Dikirim" {
-		_, err := CreateShipment(order.ID, "Kurir Toko", order.ShippingAddress, 3)
+		_, err := CreateShipment(order.ID, "Kurir Toko", order.ShippingAddress, order.Province, order.City, order.District, order.Village, 3)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat data pengiriman"})
 		}

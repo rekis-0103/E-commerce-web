@@ -10,6 +10,10 @@ type Order struct {
 	TotalAmount     float64     `json:"total_amount"`
 	Status          string      `gorm:"default:'Menunggu Pembayaran'" json:"status"` // Menunggu Pembayaran, Diproses, Dikirim, Selesai
 	ShippingAddress string      `json:"shipping_address"`
+	Province        string      `gorm:"size:100" json:"province"`
+	City            string      `gorm:"size:100" json:"city"`
+	District        string      `gorm:"size:100" json:"district"`
+	Village         string      `gorm:"size:100" json:"village"`
 	PaymentMethod   string      `gorm:"size:50;default:'transfer_manual'" json:"payment_method"` // transfer_manual, akane_pay
 	PaymentProof    string      `json:"payment_proof"` // URL gambar bukti transfer
 	CreatedAt       time.Time   `json:"created_at"`

@@ -19,35 +19,48 @@ func generateTrackingNumber(orderID uint) string {
 	return fmt.Sprintf("TRX-%s-%04d-%d", dateStr, orderID, randSuffix)
 }
 
-// FindNearestWarehouse mencari gudang bertipe 'pengiriman' terdekat dengan lokasi asal
-func FindNearestWarehouse(province, city, district string) (*models.Warehouse, error) {
+// FindNearestWarehouse mencari gudang terdekat berdasarkan hierarki wilayah (Village -> District -> City -> Province)
+func FindNearestWarehouse(province, city, district, village string, whType string) (*models.Warehouse, error) {
 	var warehouse models.Warehouse
 
-	// Priority 1: Match Kecamatan (District)
-	if err := config.DB.Where("warehouse_type = 'pengiriman' AND province = ? AND city = ? AND district = ?", province, city, district).First(&warehouse).Error; err == nil {
+	// Priority 1: Match Village
+	if village != "" {
+		if err := config.DB.Where("warehouse_type = ? AND province = ? AND city = ? AND district = ? AND village = ?", whType, province, city, district, village).First(&warehouse).Error; err == nil {
+			return &warehouse, nil
+		}
+	}
+
+	// Priority 2: Match District
+	if district != "" {
+		if err := config.DB.Where("warehouse_type = ? AND province = ? AND city = ? AND district = ?", whType, province, city, district).First(&warehouse).Error; err == nil {
+			return &warehouse, nil
+		}
+	}
+
+	// Priority 3: Match City
+	if city != "" {
+		if err := config.DB.Where("warehouse_type = ? AND province = ? AND city = ?", whType, province, city).First(&warehouse).Error; err == nil {
+			return &warehouse, nil
+		}
+	}
+
+	// Priority 4: Match Province
+	if province != "" {
+		if err := config.DB.Where("warehouse_type = ? AND province = ?", whType, province).First(&warehouse).Error; err == nil {
+			return &warehouse, nil
+		}
+	}
+
+	// Priority 5: Global Fallback (Any warehouse of this type)
+	if err := config.DB.Where("warehouse_type = ?", whType).First(&warehouse).Error; err == nil {
 		return &warehouse, nil
 	}
 
-	// Priority 2: Match Kota (City)
-	if err := config.DB.Where("warehouse_type = 'pengiriman' AND province = ? AND city = ?", province, city).First(&warehouse).Error; err == nil {
-		return &warehouse, nil
-	}
-
-	// Priority 3: Match Provinsi (Province)
-	if err := config.DB.Where("warehouse_type = 'pengiriman' AND province = ?", province).First(&warehouse).Error; err == nil {
-		return &warehouse, nil
-	}
-
-	// Priority 4: Gudang Pengiriman apa saja yang tersedia (Global Fallback)
-	if err := config.DB.Where("warehouse_type = 'pengiriman'").First(&warehouse).Error; err == nil {
-		return &warehouse, nil
-	}
-
-	return nil, fmt.Errorf("tidak ada gudang pengiriman yang tersedia di wilayah ini")
+	return nil, fmt.Errorf("tidak ada gudang %s yang tersedia di wilayah ini", whType)
 }
 
 // CreateShipment - Membuat data pengiriman saat order status berubah jadi "Dikirim"
-func CreateShipment(orderID uint, courierName string, shippingAddress string, estimatedDays int) (*models.Shipment, error) {
+func CreateShipment(orderID uint, courierName string, shippingAddress, province, city, district, village string, estimatedDays int) (*models.Shipment, error) {
 	// 1. Dapatkan detail Order dan Lokasi Shop asal
 	var order models.Order
 	if err := config.DB.Preload("Items").First(&order, orderID).Error; err != nil {
@@ -59,13 +72,13 @@ func CreateShipment(orderID uint, courierName string, shippingAddress string, es
 		return nil, fmt.Errorf("toko tidak ditemukan")
 	}
 
-	// 2. Cari Gudang Pengiriman terdekat dari lokasi Penjual
-	nearestWH, err := FindNearestWarehouse(shop.Province, shop.City, shop.District)
+	// 2. Cari Gudang Pengiriman terdekat dari lokasi Penjual (Origin Hub)
+	nearestWH, err := FindNearestWarehouse(shop.Province, shop.City, shop.District, shop.Village, "pengiriman")
 	var warehouseIDPtr *uint = nil
 	currentLocName := "Lokasi Pickup"
 	if err == nil {
 		warehouseIDPtr = &nearestWH.ID
-		currentLocName = fmt.Sprintf("Hub Terdekat: %s (%s)", nearestWH.Name, nearestWH.City)
+		currentLocName = fmt.Sprintf("Gudang Pengiriman Asal: %s (%s)", nearestWH.Name, nearestWH.City)
 	}
 
 	// 3. Cek apakah shipment sudah ada
@@ -83,8 +96,12 @@ func CreateShipment(orderID uint, courierName string, shippingAddress string, es
 		CurrentStatus:   "Dikirim",
 		CurrentLocation: currentLocName,
 		ShippingAddress: shippingAddress,
+		Province:        province,
+		City:            city,
+		District:        district,
+		Village:         village,
 		EstimatedDays:   estimatedDays,
-		WarehouseID:     warehouseIDPtr, // Tautkan ke gudang terdekat
+		WarehouseID:     warehouseIDPtr,
 	}
 
 	if err := config.DB.Create(&shipment).Error; err != nil {
@@ -199,7 +216,11 @@ func GetShopShipmentOrders(c *fiber.Ctx) error {
 	})
 }
 
-// GetNextDestination menghitung gudang mana yang harus dituju selanjutnya
+// GetNextDestination menghitung rute paket selanjutnya:
+// 1. Pengiriman Asal -> Sortir Asal
+// 2. Sortir Asal -> Sortir Tujuan (Transit)
+// 3. Sortir Tujuan -> Pengiriman Tujuan
+// 4. Pengiriman Tujuan -> Pembeli
 func GetNextDestination(shipment *models.Shipment) (string, *uint, string) {
 	var currentWH models.Warehouse
 	if shipment.WarehouseID == nil {
@@ -207,29 +228,37 @@ func GetNextDestination(shipment *models.Shipment) (string, *uint, string) {
 	}
 	config.DB.First(&currentWH, *shipment.WarehouseID)
 
-	// JIKA di Gudang Pengiriman Asal (Origin Hub) -> Kirim ke Gudang Transit (Sortir) di provinsi yang sama
-	if currentWH.WarehouseType == "pengiriman" && (shipment.CurrentStatus == "Dikirim" || shipment.CurrentStatus == "Di Gudang") {
-		// Cari apakah kita sudah di Hub Tujuan atau Hub Asal
-		// Untuk menyederhanakan, kita cek apakah ada gudang sortir di provinsi ini
-		var sortirWH models.Warehouse
-		err := config.DB.Where("warehouse_type = 'sortir' AND province = ?", currentWH.Province).First(&sortirWH).Error
-		if err == nil && sortirWH.ID != currentWH.ID {
-			return "Gudang Transit (Sortir)", &sortirWH.ID, sortirWH.Name
+	// Dapatkan info Toko untuk tahu lokasi asal
+	var order models.Order
+	config.DB.First(&order, shipment.OrderID)
+	var shop models.Shop
+	config.DB.First(&shop, order.ShopID)
+
+	// JIKA di Gudang Pengiriman Asal -> Ke Gudang Sortir Asal (Provinsi yang sama dengan Penjual)
+	if currentWH.WarehouseType == "pengiriman" && currentWH.Province == shop.Province {
+		sortirAsal, err := FindNearestWarehouse(shop.Province, shop.City, shop.District, shop.Village, "sortir")
+		if err == nil && sortirAsal.ID != currentWH.ID {
+			return "Gudang Sortir Asal", &sortirAsal.ID, sortirAsal.Name
 		}
 	}
 
-	// JIKA di Gudang Sortir -> Kirim ke Hub Pengiriman (Last Mile Hub) terdekat dengan alamat pembeli
+	// JIKA di Gudang Sortir Asal -> Ke Gudang Sortir Tujuan (Provinsi yang sama dengan Pembeli)
+	if currentWH.WarehouseType == "sortir" && currentWH.Province != shipment.Province {
+		sortirTujuan, err := FindNearestWarehouse(shipment.Province, shipment.City, shipment.District, shipment.Village, "sortir")
+		if err == nil && sortirTujuan.ID != currentWH.ID {
+			return "Gudang Sortir Tujuan (Transit)", &sortirTujuan.ID, sortirTujuan.Name
+		}
+	}
+
+	// JIKA di Gudang Sortir (baik asal maupun transit) -> Ke Gudang Pengiriman Tujuan (Wilayah Pembeli)
 	if currentWH.WarehouseType == "sortir" {
-		// Parsing sederhana dari ShippingAddress (asumsi format: "... , Kota, Provinsi")
-		// Dalam implementasi nyata, sebaiknya tabel Order/Shipment punya field Province/City terpisah
-		// Kita coba cari Hub Pengiriman di wilayah tersebut atau fallback ke Hub Pengiriman mana saja
-		targetWH, err := FindNearestWarehouse("", "", "") // Fallback
-		if err == nil && targetWH.ID != currentWH.ID {
-			return "Hub Pengiriman Tujuan", &targetWH.ID, targetWH.Name
+		pengirimanTujuan, err := FindNearestWarehouse(shipment.Province, shipment.City, shipment.District, shipment.Village, "pengiriman")
+		if err == nil && pengirimanTujuan.ID != currentWH.ID {
+			return "Gudang Pengiriman Tujuan", &pengirimanTujuan.ID, pengirimanTujuan.Name
 		}
 	}
 
-	// JIKA sudah di Hub Pengiriman Tujuan atau tidak ada rute lain -> Alamat Pembeli
+	// JIKA sudah di Gudang Pengiriman Tujuan atau tidak ada rute lain -> Alamat Pembeli
 	return "Alamat Pembeli", nil, "Kurir akan mengantar ke alamat tujuan"
 }
 
@@ -271,6 +300,9 @@ func UpdateShipmentLocation(c *fiber.Ctx) error {
 		shipment.CurrentStatus = "Di Gudang"
 		if currentWH.WarehouseType == "sortir" {
 			shipment.CurrentStatus = "Transit di Gudang Sortir"
+		} else if currentWH.WarehouseType == "pengiriman" && shipment.Province == currentWH.Province {
+			// Jika sampai di gudang pengiriman yang provinsinya sama dengan pembeli
+			shipment.CurrentStatus = "Di Gudang Pengiriman Tujuan"
 		}
 		status = "Diterima di " + currentWH.Name
 	} else if req.Action == "keluar" {
@@ -293,7 +325,7 @@ func UpdateShipmentLocation(c *fiber.Ctx) error {
 	log := models.ShipmentLog{
 		ShipmentID:    shipment.ID,
 		Status:        status,
-		Location:      currentWH.Name, // Tetap gunakan nama gudang saat ini sebagai lokasi event
+		Location:      currentWH.Name,
 		Notes:         req.Notes,
 		UpdatedBy:     userID,
 		UpdatedByRole: userRole,

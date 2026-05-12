@@ -10,6 +10,7 @@ function Cart() {
   const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userAddress, setUserAddress] = useState('');
+  const [userProfile, setUserProfile] = useState(null);
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
@@ -27,8 +28,9 @@ function Cart() {
       const profileRes = await axios.get('http://localhost:3000/api/user/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const address = profileRes.data.data.address || '';
-      setUserAddress(address);
+      const data = profileRes.data.data;
+      setUserProfile(data);
+      setUserAddress(data.address || '');
 
       const cartRes = await axios.get('http://localhost:3000/api/user/cart', {
         headers: { Authorization: `Bearer ${token}` }
@@ -70,8 +72,8 @@ function Cart() {
   };
 
   const handleCheckout = async () => {
-    if (!userAddress.trim()) {
-      if (window.confirm("Alamat pengiriman belum diisi. Isi alamat di halaman profil sekarang?")) {
+    if (!userAddress.trim() || !userProfile?.province) {
+      if (window.confirm("Alamat pengiriman atau data wilayah belum lengkap. Lengkapi di halaman profil sekarang?")) {
         navigate('/profile');
       }
       return;
@@ -79,7 +81,13 @@ function Cart() {
 
     try {
       const response = await axios.post('http://localhost:3000/api/user/checkout',
-        { shipping_address: userAddress },
+        { 
+          shipping_address: userAddress,
+          province: userProfile.province,
+          city: userProfile.city,
+          district: userProfile.district,
+          village: userProfile.village
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
