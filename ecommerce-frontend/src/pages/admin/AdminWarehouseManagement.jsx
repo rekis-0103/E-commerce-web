@@ -120,7 +120,9 @@ function AdminWarehouseManagement() {
     const whId = selectedWarehouse.id || selectedWarehouse.ID;
     try {
       await axios.put(`http://localhost:3000/api/admin/warehouse/${whId}`, {
-        name: warehouseName, address: warehouseAddress, warehouse_type: warehouseType, staff_id: selectedStaffId ? parseInt(selectedStaffId) : 0
+        name: warehouseName, address: warehouseAddress, warehouse_type: warehouseType, 
+        province, city, district, village, postal_code: postalCode,
+        staff_id: selectedStaffId ? parseInt(selectedStaffId) : 0
       }, { headers: { Authorization: `Bearer ${token}` } });
       alert("✅ Gudang berhasil diupdate!");
       setShowEditModal(false); fetchData();
@@ -147,12 +149,41 @@ function AdminWarehouseManagement() {
     }
   };
 
-  const openEditModal = (w) => {
+  const openEditModal = async (w) => {
     setSelectedWarehouse(w);
     setWarehouseName(w.name || '');
     setWarehouseAddress(w.address || '');
     setWarehouseType(w.warehouse_type || 'pengiriman');
+    setProvince(w.province || '');
+    setCity(w.city || '');
+    setDistrict(w.district || '');
+    setVillage(w.village || '');
+    setPostalCode(w.postal_code || '');
     setSelectedStaffId(w.owner_id || w.ownerID || '');
+    
+    // Inisialisasi Region IDs untuk dropdown di Edit Modal
+    try {
+      const provs = await regionService.getProvinces();
+      const foundProv = provs.find(p => p.name === w.province);
+      if (foundProv) {
+        setRegionIds({ province: foundProv.id, city: '', district: '' });
+        const regs = await regionService.getRegencies(foundProv.id);
+        setCities(regs);
+        const foundCity = regs.find(c => c.name === w.city);
+        if (foundCity) {
+          setRegionIds(prev => ({ ...prev, city: foundCity.id }));
+          const dists = await regionService.getDistricts(foundCity.id);
+          setDistricts(dists);
+          const foundDist = dists.find(d => d.name === w.district);
+          if (foundDist) {
+            setRegionIds(prev => ({ ...prev, district: foundDist.id }));
+            const vills = await regionService.getVillages(foundDist.id);
+            setVillages(vills);
+          }
+        }
+      }
+    } catch (err) { console.error("Gagal load region data", err); }
+
     setShowEditModal(true);
   };
 
@@ -160,6 +191,8 @@ function AdminWarehouseManagement() {
     setWarehouseName(''); setWarehouseCode(''); setWarehouseAddress('');
     setProvince(''); setCity(''); setDistrict(''); setVillage(''); setPostalCode('');
     setSelectedStaffId('');
+    setRegionIds({ province: '', city: '', district: '' });
+    setCities([]); setDistricts([]); setVillages([]);
   };
 
   const handleAddNewCourier = async (e) => {
@@ -345,37 +378,78 @@ function AdminWarehouseManagement() {
         )}
         {showEditModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setShowEditModal(false)}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 24, maxWidth: 600, width: '90%' }} onClick={e => e.stopPropagation()}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ backgroundColor: theme.cardBg, padding: 32, borderRadius: 24, maxWidth: 600, width: '90%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
               <h3 style={{ color: theme.text, marginBottom: 24, fontSize: 24 }}>Edit Gudang</h3>
               <form onSubmit={handleUpdateWarehouse}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Nama Gudang</label>
-                  <input type="text" value={warehouseName} onChange={e => setWarehouseName(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Alamat Lengkap</label>
-                  <textarea value={warehouseAddress} onChange={e => setWarehouseAddress(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, minHeight: 80, fontFamily: 'inherit' }} required />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
-                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Tipe Gudang</label>
+                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Nama Gudang *</label>
+                    <input type="text" value={warehouseName} onChange={e => setWarehouseName(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Tipe Gudang *</label>
                     <select value={warehouseType} onChange={e => setWarehouseType(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
                       <option value="pengiriman">Pengiriman</option>
                       <option value="sortir">Sortir</option>
                     </select>
                   </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                   <div>
-                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Manager</label>
-                    <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }}>
-                      <option value="">-- Kosongkan / Ganti Manager --</option>
-                      {availableStaff.map(s => <option key={s.id || s.ID} value={s.id || s.ID}>{s.name}</option>)}
-                      {selectedWarehouse?.owner && <option key={`owner-${selectedWarehouse.owner.id || selectedWarehouse.owner.ID}`} value={selectedWarehouse.owner.id || selectedWarehouse.owner.ID}>{selectedWarehouse.owner.name} (Manager Saat Ini)</option>}
+                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Provinsi *</label>
+                    <select value={regionIds.province} onChange={handleProvinceChange} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
+                      <option value="">Pilih</option>
+                      {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Kota *</label>
+                    <select value={regionIds.city} onChange={handleCityChange} disabled={!regionIds.province} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
+                      <option value="">Pilih</option>
+                      {cities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                 </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Kecamatan *</label>
+                    <select value={regionIds.district} onChange={handleDistrictChange} disabled={!regionIds.city} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
+                      <option value="">Pilih</option>
+                      {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Kelurahan *</label>
+                    <select value={village} onChange={e => setVillage(e.target.value)} disabled={!regionIds.district} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required>
+                      <option value="">Pilih</option>
+                      {villages.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Kode Pos *</label>
+                    <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }} required />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Alamat Lengkap *</label>
+                  <textarea value={warehouseAddress} onChange={e => setWarehouseAddress(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, minHeight: 80, fontFamily: 'inherit' }} required />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: 'block', color: theme.textSecondary, marginBottom: 6, fontSize: 14 }}>Manager</label>
+                  <select value={selectedStaffId} onChange={e => setSelectedStaffId(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text }}>
+                    <option value="">-- Kosongkan / Ganti Manager --</option>
+                    {availableStaff.map(s => <option key={s.id || s.ID} value={s.id || s.ID}>{s.name}</option>)}
+                    {selectedWarehouse?.owner && <option key={`owner-${selectedWarehouse.owner.id || selectedWarehouse.owner.ID}`} value={selectedWarehouse.owner.id || selectedWarehouse.owner.ID}>{selectedWarehouse.owner.name} (Manager Saat Ini)</option>}
+                  </select>
+                </div>
+                
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <button type="submit" style={{ flex: 1, padding: 14, backgroundColor: '#F59E0B', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700 }}>Update Gudang</button>
-                  <button type="button" onClick={() => setShowEditModal(false)} style={{ flex: 1, padding: 14, backgroundColor: theme.border, color: theme.text, border: 'none', borderRadius: 12 }}>Batal</button>
+                  <button type="submit" style={{ flex: 1, padding: 14, backgroundColor: '#F59E0B', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, cursor: 'pointer' }}>Update Gudang</button>
+                  <button type="button" onClick={() => setShowEditModal(false)} style={{ flex: 1, padding: 14, backgroundColor: theme.border, color: theme.text, border: 'none', borderRadius: 12, cursor: 'pointer' }}>Batal</button>
                 </div>
               </form>
             </motion.div>

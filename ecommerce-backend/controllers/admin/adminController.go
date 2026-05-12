@@ -379,6 +379,11 @@ func UpdateWarehouseByAdmin(c *fiber.Ctx) error {
 		Name          string `json:"name"`
 		Address       string `json:"address"`
 		WarehouseType string `json:"warehouse_type"`
+		Province      string `json:"province"`
+		City          string `json:"city"`
+		District      string `json:"district"`
+		Village       string `json:"village"`
+		PostalCode    string `json:"postal_code"`
 		StaffID       uint   `json:"staff_id"`
 	}
 
@@ -416,6 +421,11 @@ func UpdateWarehouseByAdmin(c *fiber.Ctx) error {
 	warehouse.Name = req.Name
 	warehouse.Address = req.Address
 	warehouse.WarehouseType = req.WarehouseType
+	warehouse.Province = req.Province
+	warehouse.City = req.City
+	warehouse.District = req.District
+	warehouse.Village = req.Village
+	warehouse.PostalCode = req.PostalCode
 	warehouse.OwnerID = newOwnerID
 
 	if err := tx.Save(&warehouse).Error; err != nil {
