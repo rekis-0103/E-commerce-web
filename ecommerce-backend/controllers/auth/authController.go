@@ -1,10 +1,15 @@
 package auth
 
 import (
+	"crypto/rsa"
 	"ecommerce-backend/config"
 	"ecommerce-backend/models"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"math/rand"
+	"net/http"
 	"os"
 	"time"
 
@@ -155,7 +160,66 @@ func Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Login berhasil!", "token": t, "role": user.Role})
 }
 
-// 4. Login via Google (Membaca Data Asli dari Google + Alat Penyadap)
+// Google JWKS response structure
+type googleJWKS struct {
+	Keys []googleJWK `json:"keys"`
+}
+
+type googleJWK struct {
+	Kid string `json:"kid"`
+	N   string `json:"n"` // RSA modulus (base64url)
+	E   string `json:"e"` // RSA exponent (base64url)
+}
+
+// fetchGooglePublicKey mengambil RSA public key dari Google JWKS endpoint
+// berdasarkan kid (key ID) dari header JWT Google.
+func fetchGooglePublicKey(kid string) (*rsa.PublicKey, error) {
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v3/certs")
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil Google public keys: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var jwks googleJWKS
+	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
+		return nil, fmt.Errorf("gagal decode Google JWKS: %w", err)
+	}
+
+	for _, key := range jwks.Keys {
+		if key.Kid != kid {
+			continue
+		}
+
+		// Decode modulus (n) dari base64url
+		nBytes, err := base64.RawURLEncoding.DecodeString(key.N)
+		if err != nil {
+			return nil, fmt.Errorf("gagal decode modulus: %w", err)
+		}
+
+		// Decode exponent (e) dari base64url
+		eBytes, err := base64.RawURLEncoding.DecodeString(key.E)
+		if err != nil {
+			return nil, fmt.Errorf("gagal decode exponent: %w", err)
+		}
+
+		// Konversi exponent bytes menjadi int
+		exponent := 0
+		for _, b := range eBytes {
+			exponent = exponent<<8 | int(b)
+		}
+
+		pubKey := &rsa.PublicKey{
+			N: new(big.Int).SetBytes(nBytes),
+			E: exponent,
+		}
+
+		return pubKey, nil
+	}
+
+	return nil, fmt.Errorf("kunci publik dengan kid=%s tidak ditemukan di Google JWKS", kid)
+}
+
+// 4. Login via Google (VERIFIKASI SIGNATURE GOOGLE)
 func GoogleLogin(c *fiber.Ctx) error {
 	var req struct {
 		Token string `json:"token"`
@@ -164,47 +228,103 @@ func GoogleLogin(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"message": "Token tidak valid"})
 	}
 
-	token_google, _, err := jwt.NewParser().ParseUnverified(req.Token, jwt.MapClaims{})
+	if req.Token == "" {
+		return c.Status(400).JSON(fiber.Map{"message": "Token wajib diisi"})
+	}
+
+	// 1. Parse header token untuk mendapatkan kid (key ID)
+	parser := jwt.NewParser()
+	parsedUnverified, _, err := parser.ParseUnverified(req.Token, jwt.MapClaims{})
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"message": "Gagal membaca token Google"})
 	}
 
-	claims, ok := token_google.Claims.(jwt.MapClaims)
-	if !ok {
-		return c.Status(400).JSON(fiber.Map{"message": "Format token Google salah"})
+	kid, ok := parsedUnverified.Header["kid"].(string)
+	if !ok || kid == "" {
+		return c.Status(400).JSON(fiber.Map{"message": "Token Google tidak memiliki kid"})
 	}
 
+	// 2. Ambil public key Google yang sesuai dengan kid
+	googlePubKey, err := fetchGooglePublicKey(kid)
+	if err != nil {
+		fmt.Println("Google pubkey error:", err)
+		return c.Status(500).JSON(fiber.Map{"message": "Gagal memverifikasi token Google"})
+	}
+
+	// 3. Verifikasi signature token dengan public key Google
+	token_google, err := jwt.Parse(req.Token, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("metode signature tidak valid: %v", t.Header["alg"])
+		}
+		return googlePubKey, nil
+	})
+	if err != nil || !token_google.Valid {
+		return c.Status(401).JSON(fiber.Map{"message": "Token Google tidak valid atau palsu"})
+	}
+
+	claims, ok := token_google.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(400).JSON(fiber.Map{"message": "Format klaim token Google salah"})
+	}
+
+	// 4. Validasi issuer (harus dari Google)
+	iss, _ := claims["iss"].(string)
+	if iss != "https://accounts.google.com" && iss != "accounts.google.com" {
+		return c.Status(401).JSON(fiber.Map{"message": "Issuer token tidak valid"})
+	}
+
+	// 5. Validasi audience (harus cocok dengan Google Client ID kita)
+	aud, _ := claims["aud"].(string)
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	if googleClientID == "" {
+		return c.Status(500).JSON(fiber.Map{"message": "Google Client ID belum dikonfigurasi di server"})
+	}
+	if aud != googleClientID {
+		fmt.Printf("GoogleLogin: aud mismatch — got %q, expected %q\n", aud, googleClientID)
+		return c.Status(401).JSON(fiber.Map{"message": "Audience token tidak valid"})
+	}
+
+	// 6. Validasi expired (jwt.Parse sudah mengecek exp, tapi kita cek ulang untuk kepastian)
+	exp, _ := claims["exp"].(float64)
+	if exp == 0 || time.Now().After(time.Unix(int64(exp), 0)) {
+		return c.Status(401).JSON(fiber.Map{"message": "Token Google sudah kedaluwarsa"})
+	}
+
+	// 7. Ambil data user dari klaim yang sudah TERVERIFIKASI
 	realEmail := fmt.Sprintf("%v", claims["email"])
 	realName := fmt.Sprintf("%v", claims["name"])
 
-	// ---- ALAT PENYADAP ----
+	if realEmail == "" || realEmail == "<nil>" {
+		return c.Status(400).JSON(fiber.Map{"message": "Token Google tidak mengandung email"})
+	}
+
 	fmt.Println("\n=====================================")
-	fmt.Println("🚀 LOGIN GOOGLE TERDETEKSI!")
+	fmt.Println("🚀 LOGIN GOOGLE TERVERIFIKASI!")
 	fmt.Println("Nama  :", realName)
 	fmt.Println("Email :", realEmail)
+	fmt.Printf("Iss   : %s | Aud : %s\n", iss, aud)
 
 	var user models.User
-	if err := config.DB.Where("email = ?", realEmail).First(&user).Error; err != nil {
-		fmt.Println("Status: Email belum ada. Mencoba membuat akun baru...")
-		
-		// Perhatikan: Kita TIDAK mengirimkan OTP sama sekali ke database
+	if errDB := config.DB.Where("email = ?", realEmail).First(&user).Error; errDB != nil {
+		fmt.Println("Status: Email belum ada. Membuat akun baru...")
+
 		user = models.User{
 			Email: realEmail,
 			Name:  realName,
 			Role:  "buyer",
 		}
-		
+
 		if errCreate := config.DB.Create(&user).Error; errCreate != nil {
 			fmt.Println("❌ GAGAL SIMPAN KE MYSQL:", errCreate)
-		} else {
-			fmt.Println("✅ AKUN BARU BERHASIL DISIMPAN KE DB!")
+			return c.Status(500).JSON(fiber.Map{"message": "Gagal membuat akun baru"})
 		}
+		fmt.Println("✅ AKUN BARU BERHASIL DISIMPAN KE DB!")
 	} else {
 		fmt.Println("Status: Email sudah ada di DB. Langsung masuk!")
 	}
 	fmt.Println("=====================================\n")
 
-	// Buat Token Lokal
+	// 8. Buat token lokal
 	token_lokal := jwt.New(jwt.SigningMethodHS256)
 	claims_lokal := token_lokal.Claims.(jwt.MapClaims)
 	claims_lokal["id"] = user.ID
