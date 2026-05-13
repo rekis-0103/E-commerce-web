@@ -190,6 +190,64 @@ Prioritas utama:
 
 ---
 
+# Konteks Aplikasi
+
+Project ini adalah monorepo e-commerce dengan 3 aplikasi utama:
+- `ecommerce-backend`: REST API menggunakan Go Fiber, GORM, dan MySQL.
+- `ecommerce-frontend`: web app menggunakan React + Vite.
+- `ecommerce-mobile`: aplikasi Expo/React Native sederhana.
+
+## Backend
+- Entry point backend ada di `ecommerce-backend/main.go`.
+- Koneksi database ada di `ecommerce-backend/config/database.go`.
+- Routing utama ada di `ecommerce-backend/routes/setup.go`.
+- Backend memakai `AutoMigrate` untuk model di folder `ecommerce-backend/models`.
+- Upload file disimpan di `ecommerce-backend/uploads` dan diserve sebagai `/uploads`.
+- Autentikasi menggunakan JWT Bearer token di `ecommerce-backend/middleware/auth.go`.
+- Role yang digunakan: `admin`, `seller`, `buyer`, `courier`, `warehouse_staff`.
+
+## Domain Backend
+- Auth: register OTP, login email/password, dan Google login.
+- User/Profile: ambil dan update profil user.
+- Shop/Product: registrasi toko, approval toko oleh admin, CRUD produk seller.
+- Cart/Order: keranjang, checkout, upload bukti pembayaran, update status order.
+- Wallet/Akane Pay: setup PIN, top up, withdrawal, pembayaran order.
+- Shipment/Warehouse/Delivery Hub: tracking resi, proses gudang, kurir, assignment hub, bukti pengiriman.
+- Admin: dashboard, manajemen user, toko, warehouse, courier, dan delivery hub.
+
+## Frontend Web
+- Entry point frontend ada di `ecommerce-frontend/src/main.jsx`.
+- Routing halaman ada di `ecommerce-frontend/src/App.jsx`.
+- Halaman dibagi ke folder `pages/auth`, `pages/user`, `pages/seller`, dan `pages/admin`.
+- Frontend web saat ini banyak memakai `axios` langsung di halaman dengan base URL `http://localhost:3000/api`.
+- Token dan role disimpan di `localStorage`.
+- Belum ada centralized API client atau protected route global di frontend web; proteksi utama tetap di backend.
+- Dark mode dikelola melalui `ecommerce-frontend/src/context/ThemeContext.jsx`.
+- Data wilayah Indonesia memakai service `ecommerce-frontend/src/services/regionService.js`.
+
+## Mobile
+- Entry point mobile ada di `ecommerce-mobile/App.js`.
+- API client mobile ada di `ecommerce-mobile/src/services/api.js`.
+- Mobile memakai `AsyncStorage` untuk token dan axios interceptor untuk menyisipkan Authorization header.
+- Base URL mobile masih hardcoded ke IP lokal, jadi perlu dicek jika jaringan/device berubah.
+
+## Alur Bisnis Utama
+- Buyer melihat produk publik dari `/api/products`.
+- Buyer menambah produk ke cart, lalu checkout membuat order per toko.
+- Pembayaran bisa melalui upload bukti transfer manual atau Akane Pay.
+- Seller memproses order dan saat status menjadi `Dikirim`, backend membuat shipment dan nomor resi.
+- Warehouse staff dan courier memperbarui status/lokasi shipment.
+- Buyer dapat tracking resi dan konfirmasi paket diterima.
+- Buyer dapat mendaftar sebagai seller; toko perlu approval admin sebelum aktif sebagai seller.
+
+## Catatan Implementasi Existing
+- Field `Product.Image` menyimpan JSON string array path gambar, bukan tabel relasi gambar.
+- Response API umumnya memakai `fiber.Map` dengan key seperti `message`, `data`, `token`, atau `role`.
+- Beberapa controller mengambil `user_id` dari JWT locals sebagai `float64`; ikuti pola existing atau gunakan helper yang sudah ada bila tersedia.
+- Jangan membuat arsitektur baru besar-besaran kecuali memang dibutuhkan; project saat ini memakai controller langsung ke GORM tanpa layer service terpisah.
+
+---
+
 # Common Mistakes To Avoid
 
 Section ini digunakan untuk menyimpan kesalahan yang pernah dilakukan AI agar tidak terulang di sesi berikutnya.
