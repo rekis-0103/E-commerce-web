@@ -166,6 +166,8 @@ Jika fix pertama gagal:
 
 Saat diminta membuat commit message:
 - gunakan format conventional commit
+- gunakan bahasa indonesia saat commit
+- buat commit message saat diminta saja, jangan otomatis buat commit sebelum diminta
 
 Contoh:
 - feat:
@@ -185,3 +187,10 @@ Prioritas utama:
 4. perubahan minimal namun efektif
 5. maintainable
 6. mudah dipahami
+
+---
+
+# Common Mistakes To Avoid
+
+Tulis kesalahan yang telah dilakukan AI dibawah ini dan beri solusi agar sesi berikutnya tidak melakukan kesalahan yang sama
+1. 
