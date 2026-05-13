@@ -192,5 +192,29 @@ Prioritas utama:
 
 # Common Mistakes To Avoid
 
-Tulis kesalahan yang telah dilakukan AI dibawah ini dan beri solusi agar sesi berikutnya tidak melakukan kesalahan yang sama
+Section ini digunakan untuk menyimpan kesalahan yang pernah dilakukan AI agar tidak terulang di sesi berikutnya.
+
+## Auto Update Rule
+
+Setelah memperbaiki error, jika error tersebut disebabkan oleh kesalahan implementasi AI dan berpotensi terjadi lagi, AI HARUS menambahkan catatan baru ke section ini.
+
+Jangan menulis catatan jika:
+- error hanya typo kecil sekali
+- error tidak relevan untuk sesi berikutnya
+- error berasal dari input user yang salah
+- catatan serupa sudah ada sebelumnya
+
+AI hanya boleh menambahkan catatan baru.
+AI tidak boleh menghapus atau mengubah catatan lama tanpa diminta user.
+
+## Format Wajib
+
+1. **Kesalahan:** ...
+   - **Penyebab:** ...
+   - **Solusi:** ...
+   - **Pencegahan:** ...
+   - **File terkait:** ...
+
+## Catatan Kesalahan
+
 1. 
